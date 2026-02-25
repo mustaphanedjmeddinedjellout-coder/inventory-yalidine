@@ -4,7 +4,7 @@
   "description": "Inventory & Order Management System with Yalidine Integration",
   "scripts": {
     "install:all": "cd client && npm install && cd ../server && npm install",
-    "build": "cd client && rm -rf node_modules package-lock.json && npm install --include=dev && npm run build && cd ../server && rm -rf node_modules package-lock.json && npm install",
+    "build": "cd server && npm install",
     "start": "cd server && node src/index.js",
     "dev": "cd server && npm run dev"
   },
