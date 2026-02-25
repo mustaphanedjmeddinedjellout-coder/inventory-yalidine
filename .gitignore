@@ -2,9 +2,6 @@
 node_modules/
 package-lock.json
 
-# Build output
-client/dist/
-
 # Environment variables
 .env
 
