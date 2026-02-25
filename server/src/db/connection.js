@@ -127,6 +127,7 @@ function runMigrations() {
   addCol('yalidine_tracking', 'TEXT');
   addCol('yalidine_status', 'TEXT');
   addCol('yalidine_label', 'TEXT');
+  addCol('yalidine_price', 'REAL');
 }
 runMigrations();
 
