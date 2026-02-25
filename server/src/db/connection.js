@@ -7,8 +7,18 @@ const { createClient } = require('@libsql/client');
 const path = require('path');
 require('dotenv').config({ path: path.join(__dirname, '..', '..', '.env') });
 
+const tursoUrl = process.env.TURSO_DATABASE_URL;
+if (!tursoUrl) {
+  console.error('ERROR: TURSO_DATABASE_URL environment variable is not set.');
+  process.exit(1);
+}
+if (!tursoUrl.startsWith('libsql://') && !tursoUrl.startsWith('file:')) {
+  console.error('ERROR: TURSO_DATABASE_URL must start with libsql:// — got:', tursoUrl);
+  process.exit(1);
+}
+
 const db = createClient({
-  url: process.env.TURSO_DATABASE_URL || 'file:./data/inventory.db',
+  url: tursoUrl,
   authToken: process.env.TURSO_AUTH_TOKEN || undefined,
 });
 
