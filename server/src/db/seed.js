@@ -124,10 +124,26 @@ function seedIfEmpty(db) {
         insertVariant.run(pid, color, size, 2);
       });
     });
+
+    // 12. F30 9fayl — T-Shirt 3700/2500
+    pid = insertProduct.run('F30 9fayl', 'T-Shirt', 3700, 2500).lastInsertRowid;
+    insertVariant.run(pid, 'Blanc', 'M', 1);
+    insertVariant.run(pid, 'Vert Olive', 'M', 2);
+    insertVariant.run(pid, 'Blanc', 'L', 8);
+    insertVariant.run(pid, 'Vert Olive', 'L', 4);
+    insertVariant.run(pid, 'Noir', 'L', 1);
+    insertVariant.run(pid, 'Noir', 'XL', 2);
+    insertVariant.run(pid, 'Vert', 'XL', 2);
+    insertVariant.run(pid, 'Blanc', 'XL', 2);
+    insertVariant.run(pid, 'Vert', 'XXL', 2);
+    insertVariant.run(pid, 'Vert Olive', 'XXL', 2);
+    insertVariant.run(pid, 'Noir', 'XXL', 2);
+    insertVariant.run(pid, 'Marron', 'XXL', 1);
+    insertVariant.run(pid, 'Blanc', 'XXL', 4);
   });
 
   seedTransaction();
-  console.log('Seeded 11 products with all variants.');
+  console.log('Seeded 12 products with all variants.');
 }
 
 module.exports = seedIfEmpty;
