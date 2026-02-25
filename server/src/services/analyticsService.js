@@ -32,9 +32,16 @@ const analyticsService = {
     // Total products
     const totalProducts = db.prepare('SELECT COUNT(*) as count FROM products').get();
 
-    // Total stock value
+    // Total stock value (by cost price)
     const stockValue = db.prepare(`
       SELECT COALESCE(SUM(pv.quantity * p.cost_price), 0) as value
+      FROM product_variants pv
+      JOIN products p ON p.id = pv.product_id
+    `).get();
+
+    // Total stock value (by selling price)
+    const stockValueSelling = db.prepare(`
+      SELECT COALESCE(SUM(pv.quantity * p.selling_price), 0) as value
       FROM product_variants pv
       JOIN products p ON p.id = pv.product_id
     `).get();
@@ -46,6 +53,7 @@ const analyticsService = {
       low_stock_count: lowStock.count,
       total_products: totalProducts.count,
       stock_value: stockValue.value,
+      stock_value_selling: stockValueSelling.value,
     };
   },
 

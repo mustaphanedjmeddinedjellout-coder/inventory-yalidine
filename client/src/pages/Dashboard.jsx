@@ -75,7 +75,7 @@ export default function Dashboard() {
       </div>
 
       {/* Additional stats */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-8">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
         <StatCard
           title="إجمالي المنتجات"
           value={stats?.total_products || 0}
@@ -87,6 +87,12 @@ export default function Dashboard() {
           value={`${formatCurrency(stats?.stock_value)} da`}
           icon={DollarSign}
           color="amber"
+        />
+        <StatCard
+          title="قيمة المخزون (بسعر البيع)"
+          value={`${formatCurrency(stats?.stock_value_selling)} da`}
+          icon={DollarSign}
+          color="green"
         />
       </div>
 
