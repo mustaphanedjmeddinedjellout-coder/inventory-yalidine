@@ -134,7 +134,7 @@ const orderService = {
     // Auto-send to Yalidine
     if (order && firstname && familyname && contact_phone && address && to_wilaya_name && to_commune_name) {
       if (yalidineService.isConfigured()) {
-        const productList = order.items.map(i => `${i.product_name} (${i.variant_info}) x${i.quantity}`).join(', ');
+        const productList = order.items.map(i => `${i.product_name} (${i.variant_info}) x${i.quantity}`).join(', ') + ' - يسمح بالفتح';
 
         yalidineService.createParcel(order, productList)
           .then(async (result) => {
