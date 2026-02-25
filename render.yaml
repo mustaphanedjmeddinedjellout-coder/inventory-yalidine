@@ -1,0 +1,23 @@
+services:
+  - type: web
+    name: inventory-yalidine
+    runtime: node
+    region: frankfurt
+    plan: free
+    buildCommand: cd client && npm install && npm run build && cd ../server && npm install
+    startCommand: cd server && node src/index.js
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 10000
+      - key: DB_PATH
+        value: ./data/inventory.db
+      - key: UPLOAD_DIR
+        value: ./uploads
+      - key: YALIDINE_API_ID
+        value: 12062402303760693459
+      - key: YALIDINE_API_TOKEN
+        value: bGpr0mwyAxXJBECl3vnFNq7hK8tuTSOkYjcL4feIoW9saPHU6gDViQdZ521zRM
+      - key: YALIDINE_FROM_WILAYA
+        value: Alger

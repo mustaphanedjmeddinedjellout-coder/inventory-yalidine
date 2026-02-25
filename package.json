@@ -1,0 +1,14 @@
+{
+  "name": "inventory-order-management",
+  "version": "1.0.0",
+  "description": "Inventory & Order Management System with Yalidine Integration",
+  "scripts": {
+    "install:all": "cd client && npm install && cd ../server && npm install",
+    "build": "cd client && npm run build",
+    "start": "cd server && node src/index.js",
+    "dev": "cd server && npm run dev"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
