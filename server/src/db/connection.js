@@ -132,3 +132,7 @@ function runMigrations() {
 runMigrations();
 
 module.exports = db;
+
+// Auto-seed products if database is empty (first deploy)
+const seedIfEmpty = require('./seed');
+seedIfEmpty(db);

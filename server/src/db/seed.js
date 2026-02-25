@@ -1,21 +1,14 @@
 /**
  * Database Seed Script
- * Populates the database with sample products and variants for testing.
- * Run with: npm run seed
+ * Seeds the database with real product inventory on first run.
+ * Only inserts if the products table is empty.
  */
 
-const db = require('./connection');
+function seedIfEmpty(db) {
+  const count = db.prepare('SELECT COUNT(*) as c FROM products').get().c;
+  if (count > 0) return; // Already has data
 
-function seed() {
-  console.log('Seeding database...');
-
-  // Clear existing data
-  db.exec(`
-    DELETE FROM order_items;
-    DELETE FROM orders;
-    DELETE FROM product_variants;
-    DELETE FROM products;
-  `);
+  console.log('Seeding database with product inventory...');
 
   const insertProduct = db.prepare(`
     INSERT INTO products (model_name, category, selling_price, cost_price)
@@ -27,38 +20,121 @@ function seed() {
     VALUES (?, ?, ?, ?)
   `);
 
-  const products = [
-    { model: 'قميص كلاسيكي', category: 'T-Shirt', sell: 120, cost: 60 },
-    { model: 'تيشيرت رياضي', category: 'T-Shirt', sell: 95, cost: 45 },
-    { model: 'بنطلون جينز', category: 'Pants', sell: 250, cost: 130 },
-    { model: 'بنطلون قماش', category: 'Pants', sell: 200, cost: 100 },
-    { model: 'حذاء رياضي', category: 'Shoes', sell: 350, cost: 180 },
-    { model: 'حذاء كلاسيكي', category: 'Shoes', sell: 400, cost: 200 },
-  ];
-
-  const colors = ['أسود', 'أبيض', 'أزرق', 'أحمر'];
-  const sizes = ['S', 'M', 'L', 'XL'];
-
   const seedTransaction = db.transaction(() => {
-    for (const p of products) {
-      const result = insertProduct.run(p.model, p.category, p.sell, p.cost);
-      const productId = result.lastInsertRowid;
+    // 1. Zip Ralph — T-Shirt 3700/2500
+    let pid = insertProduct.run('Zip Ralph', 'T-Shirt', 3700, 2500).lastInsertRowid;
+    insertVariant.run(pid, 'Blue', 'L', 2);
+    insertVariant.run(pid, 'Olives', 'L', 2);
+    insertVariant.run(pid, 'Marron', 'L', 1);
+    insertVariant.run(pid, 'Noir', 'L', 1);
+    insertVariant.run(pid, 'Olives', 'XL', 2);
+    insertVariant.run(pid, 'Marron', 'XL', 1);
+    insertVariant.run(pid, 'Blue', 'XL', 1);
+    insertVariant.run(pid, 'Noir', 'XL', 1);
+    insertVariant.run(pid, 'Blue', 'XXL', 2);
+    insertVariant.run(pid, 'Noir', 'XXL', 1);
+    insertVariant.run(pid, 'Marron', 'XXL', 1);
+    insertVariant.run(pid, 'Olives', 'XXL', 1);
 
-      // Create 4 variants per product
-      for (let i = 0; i < 4; i++) {
-        insertVariant.run(
-          productId,
-          colors[i % colors.length],
-          sizes[i % sizes.length],
-          Math.floor(Math.random() * 50) + 5
-        );
-      }
-    }
+    // 2. Ralph f 30 — T-Shirt 3700/2500
+    pid = insertProduct.run('Ralph f 30', 'T-Shirt', 3700, 2500).lastInsertRowid;
+    insertVariant.run(pid, 'Marron', 'M', 5);
+    insertVariant.run(pid, 'Noir', 'M', 4);
+    insertVariant.run(pid, 'Beige', 'M', 1);
+    insertVariant.run(pid, 'Marron', 'L', 8);
+    insertVariant.run(pid, 'Beige', 'L', 1);
+    insertVariant.run(pid, 'Noir', 'L', 2);
+    insertVariant.run(pid, 'Blanc', 'L', 1);
+    insertVariant.run(pid, 'Marron', 'XL', 5);
+    insertVariant.run(pid, 'Blanc', 'XL', 3);
+    insertVariant.run(pid, 'Noir', 'XL', 2);
+    insertVariant.run(pid, 'Marron', 'XXL', 3);
+    insertVariant.run(pid, 'Blanc', 'XXL', 2);
+
+    // 3. F 30 zip — T-Shirt 3700/2500
+    pid = insertProduct.run('F 30 zip', 'T-Shirt', 3700, 2500).lastInsertRowid;
+    insertVariant.run(pid, 'Blanc', 'L', 1);
+    insertVariant.run(pid, 'Blue', 'L', 1);
+    insertVariant.run(pid, 'Noir', 'L', 3);
+    insertVariant.run(pid, 'Noir', 'XL', 1);
+    insertVariant.run(pid, 'Noir', 'XXL', 2);
+
+    // 4. Ralph — T-Shirt 3700/2500
+    pid = insertProduct.run('Ralph', 'T-Shirt', 3700, 2500).lastInsertRowid;
+    insertVariant.run(pid, 'Blanc', 'S', 1);
+    insertVariant.run(pid, 'Blanc', 'M', 1);
+    insertVariant.run(pid, 'Blue', 'S', 1);
+    insertVariant.run(pid, 'Blue', 'L', 1);
+    insertVariant.run(pid, 'Blue', 'XXL', 1);
+
+    // 5. Amer — T-Shirt 3700/2500
+    pid = insertProduct.run('Amer', 'T-Shirt', 3700, 2500).lastInsertRowid;
+    insertVariant.run(pid, 'Marron', 'XXL', 1);
+    insertVariant.run(pid, 'Olives', 'XXL', 1);
+    insertVariant.run(pid, 'Blanc', 'XXL', 1);
+    insertVariant.run(pid, 'Noir', 'XXL', 1);
+
+    // 6. V Neck — T-Shirt 4000/3300
+    pid = insertProduct.run('V Neck', 'T-Shirt', 4000, 3300).lastInsertRowid;
+    insertVariant.run(pid, 'Noir', 'XXL', 2);
+    insertVariant.run(pid, 'Vert', 'XXL', 1);
+    insertVariant.run(pid, 'Blue', 'XXL', 1);
+
+    // 7. Croco Shoe — Shoes 4500/2900
+    pid = insertProduct.run('Croco Shoe', 'Shoes', 4500, 2900).lastInsertRowid;
+    insertVariant.run(pid, 'Noir', '40', 2);
+    insertVariant.run(pid, 'Noir', '41', 4);
+    insertVariant.run(pid, 'Noir', '42', 4);
+    insertVariant.run(pid, 'Noir', '43', 2);
+
+    // 8. Pantalon SNTP — Pants 3700/2500
+    pid = insertProduct.run('Pantalon SNTP', 'Pants', 3700, 2500).lastInsertRowid;
+    insertVariant.run(pid, 'Marron', '30', 3);
+    insertVariant.run(pid, 'Marron', '31', 3);
+    insertVariant.run(pid, 'Marron', '32', 3);
+    insertVariant.run(pid, 'Marron', '33', 6);
+    insertVariant.run(pid, 'Marron', '34', 3);
+    insertVariant.run(pid, 'Marron', '36', 3);
+    insertVariant.run(pid, 'Marron', '38', 3);
+    insertVariant.run(pid, 'Beige', '30', 1);
+    insertVariant.run(pid, 'Beige', '31', 1);
+    insertVariant.run(pid, 'Beige', '32', 1);
+    insertVariant.run(pid, 'Beige', '33', 2);
+    insertVariant.run(pid, 'Beige', '34', 1);
+    insertVariant.run(pid, 'Beige', '36', 1);
+    insertVariant.run(pid, 'Beige', '38', 1);
+
+    // 9. Pantalon Oversize — Pants 4200/3000
+    pid = insertProduct.run('Pantalon Oversize', 'Pants', 4200, 3000).lastInsertRowid;
+    insertVariant.run(pid, 'Noir', 'S', 6);
+    insertVariant.run(pid, 'Noir', 'M', 6);
+    insertVariant.run(pid, 'Noir', 'L', 6);
+
+    // 10. Chaussure Blanc — Shoes 3500/1900
+    pid = insertProduct.run('Chaussure Blanc', 'Shoes', 3500, 1900).lastInsertRowid;
+    insertVariant.run(pid, 'Blanc', '40', 2);
+    insertVariant.run(pid, 'Blanc', '41', 1);
+    insertVariant.run(pid, 'Blanc', '42', 1);
+    insertVariant.run(pid, 'Blanc', '43', 1);
+
+    // 11. Pull SNTP — T-Shirt 3700/2500
+    pid = insertProduct.run('Pull SNTP', 'T-Shirt', 3700, 2500).lastInsertRowid;
+    ['Marron', 'Vert', 'Beige'].forEach(color => {
+      ['S', 'M', 'L', 'XL', 'XXL'].forEach(size => {
+        insertVariant.run(pid, color, size, 2);
+      });
+    });
   });
 
   seedTransaction();
-  console.log('Database seeded successfully with sample data.');
-  process.exit(0);
+  console.log('Seeded 11 products with all variants.');
 }
 
-seed();
+module.exports = seedIfEmpty;
+
+// Allow running directly: node src/db/seed.js
+if (require.main === module) {
+  const db = require('./connection');
+  seedIfEmpty(db);
+  process.exit(0);
+}
