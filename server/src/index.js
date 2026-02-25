@@ -9,8 +9,7 @@ const path = require('path');
 const fs = require('fs');
 require('dotenv').config();
 
-// Ensure database is initialized
-require('./db/connection');
+const { setupDatabase } = require('./db/connection');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -55,9 +54,20 @@ if (fs.existsSync(clientDist)) {
   });
 }
 
-app.listen(PORT, '0.0.0.0', () => {
-  console.log(`Server running on http://localhost:${PORT}`);
-  console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
-});
+// Async startup: initialize Turso DB then start server
+async function main() {
+  try {
+    await setupDatabase();
+    app.listen(PORT, '0.0.0.0', () => {
+      console.log(`Server running on http://localhost:${PORT}`);
+      console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
+    });
+  } catch (err) {
+    console.error('Failed to start server:', err);
+    process.exit(1);
+  }
+}
+
+main();
 
 module.exports = app;

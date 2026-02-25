@@ -9,14 +9,14 @@ const orderService = require('../services/orderService');
 const { success, error } = require('../utils/response');
 
 // GET /api/orders - List orders with optional date filters
-router.get('/', (req, res) => {
+router.get('/', async (req, res) => {
   try {
     const filters = {
       date: req.query.date,
       from: req.query.from,
       to: req.query.to,
     };
-    const orders = orderService.getAll(filters);
+    const orders = await orderService.getAll(filters);
     success(res, orders);
   } catch (err) {
     error(res, err.message);
@@ -24,9 +24,9 @@ router.get('/', (req, res) => {
 });
 
 // GET /api/orders/:id - Get single order with items
-router.get('/:id', (req, res) => {
+router.get('/:id', async (req, res) => {
   try {
-    const order = orderService.getById(parseInt(req.params.id));
+    const order = await orderService.getById(parseInt(req.params.id));
     if (!order) return error(res, 'الطلب غير موجود', 404);
     success(res, order);
   } catch (err) {
@@ -35,9 +35,9 @@ router.get('/:id', (req, res) => {
 });
 
 // POST /api/orders - Create a new order
-router.post('/', (req, res) => {
+router.post('/', async (req, res) => {
   try {
-    const order = orderService.create(req.body);
+    const order = await orderService.create(req.body);
     success(res, order, 201);
   } catch (err) {
     error(res, err.message, 400);
@@ -45,12 +45,12 @@ router.post('/', (req, res) => {
 });
 
 // DELETE /api/orders/:id - Delete order (restores stock)
-router.delete('/:id', (req, res) => {
+router.delete('/:id', async (req, res) => {
   try {
-    const existing = orderService.getById(parseInt(req.params.id));
+    const existing = await orderService.getById(parseInt(req.params.id));
     if (!existing) return error(res, 'الطلب غير موجود', 404);
 
-    orderService.delete(parseInt(req.params.id));
+    await orderService.delete(parseInt(req.params.id));
     success(res, { message: 'تم حذف الطلب بنجاح واستعادة المخزون' });
   } catch (err) {
     error(res, err.message);
