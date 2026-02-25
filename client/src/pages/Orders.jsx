@@ -38,6 +38,7 @@ export default function Orders() {
   const [centersLoading, setCentersLoading] = useState(false);
   const [wilayasLoading, setWilayasLoading] = useState(false);
   const [communesLoading, setCommunesLoading] = useState(false);
+  const [yalidinePrice, setYalidinePrice] = useState('');
 
   // View order state
   const [viewOrder, setViewOrder] = useState(null);
@@ -79,6 +80,7 @@ export default function Orders() {
       setCenters([]);
       setSelectedCenter('');
       setCommunes([]);
+      setYalidinePrice('');
       setCreateOpen(true);
       // Load wilayas
       loadWilayas();
@@ -210,6 +212,7 @@ export default function Orders() {
         to_wilaya_name: selectedWilayaName || undefined,
         to_commune_name: selectedCommune || undefined,
         is_stopdesk: isStopdesk,
+        yalidine_price: yalidinePrice !== '' ? parseFloat(yalidinePrice) : undefined,
         items: validItems.map((item) => ({
           product_id: parseInt(item.product_id),
           variant_id: parseInt(item.variant_id),
@@ -611,6 +614,20 @@ export default function Orders() {
               rows={2}
               className="w-full px-3 py-2.5 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary resize-none"
               placeholder="ملاحظات إضافية..."
+            />
+          </div>
+
+          {/* Yalidine Price */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">سعر التسليم (يالدين) <span className="text-xs text-gray-400">— المبلغ الذي يدفعه الزبون عند الاستلام</span></label>
+            <input
+              type="number"
+              min="0"
+              step="1"
+              value={yalidinePrice}
+              onChange={(e) => setYalidinePrice(e.target.value)}
+              className="w-full px-3 py-2.5 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+              placeholder="مثال: 3500"
             />
           </div>
 

@@ -53,7 +53,7 @@ const orderService = {
    * @param {Object} data - { notes, firstname, familyname, contact_phone, address, to_wilaya_name, to_commune_name, is_stopdesk, items: [{ product_id, variant_id, quantity }] }
    */
   create(data) {
-    const { notes, firstname, familyname, contact_phone, address, to_wilaya_name, to_commune_name, is_stopdesk, items } = data;
+    const { notes, firstname, familyname, contact_phone, address, to_wilaya_name, to_commune_name, is_stopdesk, yalidine_price, items } = data;
 
     if (!items || items.length === 0) {
       throw new Error('يجب إضافة عنصر واحد على الأقل للطلب'); // Must add at least one item
@@ -116,12 +116,13 @@ const orderService = {
       // Insert order
       const orderResult = db.prepare(
         `INSERT INTO orders (order_number, total_amount, total_cost, total_profit, items_count, notes,
-         firstname, familyname, contact_phone, address, to_wilaya_name, to_commune_name, is_stopdesk)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+         firstname, familyname, contact_phone, address, to_wilaya_name, to_commune_name, is_stopdesk, yalidine_price)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
       ).run(
         orderNumber, totalAmount, totalCost, totalProfit, itemsCount, notes || null,
         firstname || null, familyname || null, contact_phone || null, address || null,
-        to_wilaya_name || null, to_commune_name || null, is_stopdesk ? 1 : 0
+        to_wilaya_name || null, to_commune_name || null, is_stopdesk ? 1 : 0,
+        yalidine_price != null ? yalidine_price : null
       );
 
       const newOrderId = orderResult.lastInsertRowid;
