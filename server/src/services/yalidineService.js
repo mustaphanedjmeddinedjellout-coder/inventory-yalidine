@@ -5,18 +5,46 @@
  */
 
 const BASE_URL = 'https://api.yalidine.app/v1';
-const API_ID = process.env.YALIDINE_API_ID || '';
-const API_TOKEN = process.env.YALIDINE_API_TOKEN || '';
+
+function getCredentials() {
+  return {
+    apiId: (process.env.YALIDINE_API_ID || '').trim(),
+    apiToken: (process.env.YALIDINE_API_TOKEN || '').trim(),
+  };
+}
+
+function getConfigStatus() {
+  const { apiId, apiToken } = getCredentials();
+  const missing = [];
+  if (!apiId) missing.push('YALIDINE_API_ID');
+  if (!apiToken || apiToken === 'YOUR_TOKEN_HERE' || apiToken.startsWith('REPLACE_WITH_')) {
+    missing.push('YALIDINE_API_TOKEN');
+  }
+
+  return {
+    configured: missing.length === 0,
+    missing,
+  };
+}
+
+function ensureConfigured() {
+  const status = getConfigStatus();
+  if (!status.configured) {
+    throw new Error(`Yalidine is not configured. Missing: ${status.missing.join(', ')}`);
+  }
+}
 
 function headers() {
+  const { apiId, apiToken } = getCredentials();
   return {
-    'X-API-ID': API_ID,
-    'X-API-TOKEN': API_TOKEN,
+    'X-API-ID': apiId,
+    'X-API-TOKEN': apiToken,
     'Content-Type': 'application/json',
   };
 }
 
 async function request(method, path, body) {
+  ensureConfigured();
   const url = `${BASE_URL}${path}`;
   const opts = { method, headers: headers() };
   if (body) opts.body = JSON.stringify(body);
@@ -114,7 +142,14 @@ const yalidineService = {
    * Check if Yalidine credentials are configured
    */
   isConfigured() {
-    return API_ID && API_TOKEN && API_TOKEN !== 'YOUR_TOKEN_HERE';
+    return getConfigStatus().configured;
+  },
+
+  /**
+   * Get config status for diagnostics
+   */
+  getConfigStatus() {
+    return getConfigStatus();
   },
 };
 

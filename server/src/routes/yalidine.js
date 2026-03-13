@@ -58,7 +58,7 @@ router.get('/tracking/:tracking', async (req, res) => {
 
 // GET /api/yalidine/status – Check if Yalidine is configured
 router.get('/status', (req, res) => {
-  success(res, { configured: yalidineService.isConfigured() });
+  success(res, yalidineService.getConfigStatus());
 });
 
 module.exports = router;
