@@ -5,21 +5,28 @@
 
 const { createClient } = require('@libsql/client');
 const path = require('path');
+const fs = require('fs');
 require('dotenv').config({ path: path.join(__dirname, '..', '..', '.env') });
 
 const tursoUrl = process.env.TURSO_DATABASE_URL;
-if (!tursoUrl) {
-  console.error('ERROR: TURSO_DATABASE_URL environment variable is not set.');
-  process.exit(1);
-}
-if (!tursoUrl.startsWith('libsql://') && !tursoUrl.startsWith('file:')) {
-  console.error('ERROR: TURSO_DATABASE_URL must start with libsql:// — got:', tursoUrl);
+const dbPath = process.env.DB_PATH || './data/inventory.db';
+const localFileUrl = dbPath.startsWith('file:') ? dbPath : `file:${dbPath}`;
+const databaseUrl = tursoUrl || localFileUrl;
+
+if (!databaseUrl.startsWith('libsql://') && !databaseUrl.startsWith('file:')) {
+  console.error('ERROR: Database URL must start with libsql:// or file: — got:', databaseUrl);
   process.exit(1);
 }
 
+if (!tursoUrl) {
+  const localDbPath = path.resolve(localFileUrl.replace(/^file:/, ''));
+  fs.mkdirSync(path.dirname(localDbPath), { recursive: true });
+  console.warn(`TURSO_DATABASE_URL is not set. Falling back to local SQLite at ${localDbPath}`);
+}
+
 const db = createClient({
-  url: tursoUrl,
-  authToken: process.env.TURSO_AUTH_TOKEN || undefined,
+  url: databaseUrl,
+  authToken: tursoUrl ? (process.env.TURSO_AUTH_TOKEN || undefined) : undefined,
 });
 
 /**
