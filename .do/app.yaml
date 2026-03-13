@@ -1,0 +1,55 @@
+name: inventory-yalidine
+region: fra
+
+services:
+  - name: web
+    source_dir: /
+    github:
+      repo: mustaphanedjmeddinedjellout-coder/inventory-yalidine
+      branch: main
+      deploy_on_push: true
+    environment_slug: node-js
+    instance_count: 1
+    instance_size_slug: apps-s-1vcpu-0.5gb
+    build_command: cd client && npm install && npm run build && cd ../server && npm install
+    run_command: cd server && npm start
+    routes:
+      - path: /
+    health_check:
+      http_path: /api/health
+
+    envs:
+      - key: NODE_ENV
+        scope: RUN_TIME
+        value: production
+
+      # Required Turso credentials
+      - key: TURSO_DATABASE_URL
+        scope: RUN_TIME
+        type: SECRET
+        value: REPLACE_WITH_TURSO_DATABASE_URL
+      - key: TURSO_AUTH_TOKEN
+        scope: RUN_TIME
+        type: SECRET
+        value: REPLACE_WITH_TURSO_AUTH_TOKEN
+
+      # Optional uploads directory (ephemeral on App Platform)
+      - key: DB_PATH
+        scope: RUN_TIME
+        value: ./data/inventory.db
+      - key: UPLOAD_DIR
+        scope: RUN_TIME
+        value: ./uploads
+
+      # Optional Yalidine integration
+      - key: YALIDINE_API_ID
+        scope: RUN_TIME
+        type: SECRET
+        value: REPLACE_WITH_YALIDINE_API_ID
+      - key: YALIDINE_API_TOKEN
+        scope: RUN_TIME
+        type: SECRET
+        value: REPLACE_WITH_YALIDINE_API_TOKEN
+      - key: YALIDINE_FROM_WILAYA
+        scope: RUN_TIME
+        value: Alger
