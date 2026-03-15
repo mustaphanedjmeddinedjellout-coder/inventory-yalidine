@@ -3,10 +3,10 @@ import { LayoutDashboard, Package, ShoppingCart, BarChart3, Menu, X } from 'luci
 import { useState } from 'react';
 
 const links = [
-  { to: '/', label: 'لوحة التحكم', icon: LayoutDashboard },
-  { to: '/products', label: 'المنتجات', icon: Package },
-  { to: '/orders', label: 'الطلبات', icon: ShoppingCart },
-  { to: '/analytics', label: 'التحليلات', icon: BarChart3 },
+  { to: '/admin', label: 'لوحة التحكم', icon: LayoutDashboard },
+  { to: '/admin/products', label: 'المنتجات', icon: Package },
+  { to: '/admin/orders', label: 'الطلبات', icon: ShoppingCart },
+  { to: '/admin/analytics', label: 'التحليلات', icon: BarChart3 },
 ];
 
 export default function Sidebar() {

@@ -13,8 +13,111 @@
   --color-border: #e2e8f0;
 }
 
-/* Base styles with RTL Arabic support */
+:root {
+  --cream: #f6f1ea;
+  --ink: #1f1b16;
+}
+
 body {
+  font-family: 'Space Grotesk', sans-serif;
+  background-color: var(--cream);
+  color: var(--ink);
+  direction: ltr;
+}
+
+.font-display {
+  font-family: 'Cormorant Garamond', serif;
+}
+
+.text-ink {
+  color: var(--ink);
+}
+
+.bg-cream {
+  background-color: var(--cream);
+}
+
+.container-bleed {
+  margin: 0 auto;
+  width: min(1200px, 92vw);
+}
+
+.section-heading {
+  font-size: 1.75rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.btn-primary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.9rem 1.6rem;
+  border-radius: 999px;
+  background: #111;
+  color: #fff;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.3em;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.btn-primary:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.12);
+}
+
+.hero {
+  padding: 4.5rem 0 3rem;
+}
+
+.hero-panel {
+  background: #111;
+  border-radius: 24px;
+  color: #f6f1ea;
+  padding: 2.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.hero-panel-inner {
+  text-align: center;
+  display: grid;
+  gap: 0.8rem;
+}
+
+.section-block {
+  padding: 3rem 0 5rem;
+}
+
+.field-block label {
+  display: block;
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.25em;
+  color: rgba(0, 0, 0, 0.45);
+  margin-bottom: 0.4rem;
+}
+
+.input-field {
+  width: 100%;
+  border-radius: 0.9rem;
+  border: 1px solid rgba(0, 0, 0, 0.15);
+  padding: 0.75rem 1rem;
+  background: rgba(255, 255, 255, 0.8);
+  font-size: 0.85rem;
+}
+
+.input-field:focus {
+  outline: none;
+  border-color: #111;
+  box-shadow: 0 0 0 3px rgba(0, 0, 0, 0.08);
+}
+
+/* Admin-only base styles with RTL Arabic support */
+.admin-root {
   font-family: 'Segoe UI', 'Cairo', 'Noto Sans Arabic', Tahoma, sans-serif;
   background-color: #f1f5f9;
   color: #1e293b;

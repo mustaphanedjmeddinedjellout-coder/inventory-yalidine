@@ -4,7 +4,7 @@ import { Toaster } from 'react-hot-toast';
 
 export default function Layout() {
   return (
-    <div className="min-h-screen bg-slate-100">
+    <div className="admin-root min-h-screen bg-slate-100">
       <Toaster
         position="top-center"
         toastOptions={{
