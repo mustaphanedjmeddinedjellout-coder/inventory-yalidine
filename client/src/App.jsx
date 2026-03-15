@@ -11,6 +11,8 @@ import Cart from './storefront/pages/Cart';
 import Checkout from './storefront/pages/Checkout';
 import OrderSuccess from './storefront/pages/OrderSuccess';
 import { CartProvider } from './storefront/cart-context';
+import AdminGuard from './admin/AdminGuard';
+import AdminLogin from './admin/AdminLogin';
 
 function App() {
   return (
@@ -25,7 +27,15 @@ function App() {
             <Route path="/order-success/:id" element={<OrderSuccess />} />
           </Route>
 
-          <Route path="/admin" element={<Layout />}>
+          <Route path="/admin/login" element={<AdminLogin />} />
+          <Route
+            path="/admin"
+            element={
+              <AdminGuard>
+                <Layout />
+              </AdminGuard>
+            }
+          >
             <Route index element={<Dashboard />} />
             <Route path="products" element={<Products />} />
             <Route path="orders" element={<Orders />} />
