@@ -17,7 +17,6 @@ export default function StorefrontLayout() {
             <Link to="/cart" className={location.pathname.startsWith('/cart') ? 'text-black' : ''}>
               Cart ({count})
             </Link>
-            <Link to="/admin" className="text-black/40 hover:text-black">Admin</Link>
           </nav>
         </div>
       </header>
