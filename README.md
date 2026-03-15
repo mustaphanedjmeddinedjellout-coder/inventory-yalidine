@@ -192,6 +192,40 @@ npm run dev
 
 ---
 
+## 🛒 Store API (for Noire storefront)
+
+Public read endpoints:
+- `GET  /api/store/products` — قائمة المنتجات مع المتغيرات والمخزون
+- `GET  /api/store/products/:id` — منتج واحد مع المتغيرات
+
+Protected checkout endpoint (requires `X-STORE-KEY`):
+- `POST /api/store/checkout` — إنشاء طلب وتخفيض مخزون المتغيرات
+
+Required headers for checkout:
+- `Content-Type: application/json`
+- `X-STORE-KEY: <STORE_API_KEY>`
+
+Sample checkout payload:
+
+```json
+{
+  "customer": {
+    "name": "John Doe",
+    "phone": "0550000000",
+    "wilaya": "16",
+    "commune": "Alger",
+    "address": "Address details",
+    "deliveryMethod": "home",
+    "notes": "optional"
+  },
+  "items": [
+    { "product_id": 1, "variant_id": 10, "quantity": 2, "selling_price": 3700 }
+  ]
+}
+```
+
+---
+
 ## 📈 نماذج استعلامات التحليلات | Sample Analytics Queries
 
 ```sql
