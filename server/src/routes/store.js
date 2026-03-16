@@ -7,7 +7,7 @@ const { success, error } = require('../utils/response');
 
 async function fetchVariants(productId) {
   const variantsResult = await db.execute({
-    sql: 'SELECT id, color, size, quantity FROM product_variants WHERE product_id = ? ORDER BY color, size',
+    sql: 'SELECT id, color, size, quantity, image FROM product_variants WHERE product_id = ? ORDER BY color, size',
     args: [productId],
   });
   return variantsResult.rows;

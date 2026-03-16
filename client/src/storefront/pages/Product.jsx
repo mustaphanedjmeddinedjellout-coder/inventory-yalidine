@@ -57,6 +57,7 @@ export default function Product() {
   );
 
   const maxQuantity = selectedVariant?.quantity || 0;
+  const displayImage = selectedVariant?.image || product?.image;
 
   const onAdd = () => {
     if (!product || !selectedVariant || maxQuantity <= 0) return;
@@ -64,7 +65,7 @@ export default function Product() {
       productId: String(product.id),
       variantId: String(selectedVariant.id),
       title: product.model_name,
-      image: resolveImageUrl(product.image),
+      image: resolveImageUrl(selectedVariant.image || product.image),
       price: product.selling_price,
       size: selectedVariant.size,
       color: selectedVariant.color,
@@ -91,7 +92,7 @@ export default function Product() {
       <div className="grid gap-10 lg:grid-cols-2">
         <div className="relative aspect-[3/4] w-full overflow-hidden bg-[#efeae2]">
           <img
-            src={resolveImageUrl(product.image)}
+            src={resolveImageUrl(displayImage)}
             alt={product.model_name}
             className="h-full w-full object-cover"
           />
@@ -115,7 +116,19 @@ export default function Product() {
                       key={color}
                       type="button"
                       disabled={!isAvailable}
-                      onClick={() => setSelectedColor(color)}
+                      onClick={() => {
+                        setSelectedColor(color);
+                        const hasSizeForColor = availableVariants.some(
+                          (v) => v.color === color && v.size === selectedSize && v.quantity > 0
+                        );
+                        if (!hasSizeForColor) {
+                          const firstMatch = availableVariants.find((v) => v.color === color && v.quantity > 0)
+                            || availableVariants.find((v) => v.color === color);
+                          if (firstMatch?.size) {
+                            setSelectedSize(firstMatch.size);
+                          }
+                        }
+                      }}
                       className={`rounded-full border px-4 py-2 text-[12px] uppercase tracking-wider transition-all ${
                         selectedColor === color
                           ? 'border-black bg-black text-white'

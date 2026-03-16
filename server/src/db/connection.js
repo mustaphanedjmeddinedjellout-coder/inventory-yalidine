@@ -50,6 +50,7 @@ async function initializeDatabase() {
       product_id INTEGER NOT NULL,
       color TEXT NOT NULL DEFAULT '',
       size TEXT NOT NULL DEFAULT '',
+      image TEXT,
       quantity INTEGER NOT NULL DEFAULT 0 CHECK(quantity >= 0),
       created_at TEXT DEFAULT (datetime('now')),
       updated_at TEXT DEFAULT (datetime('now')),
@@ -123,6 +124,12 @@ async function setupDatabase() {
     if (!cols.includes(name)) {
       await db.execute(`ALTER TABLE orders ADD COLUMN ${name} ${type}`);
     }
+  }
+
+  const variantColsResult = await db.execute("PRAGMA table_info('product_variants')");
+  const variantCols = variantColsResult.rows.map(r => r.name);
+  if (!variantCols.includes('image')) {
+    await db.execute('ALTER TABLE product_variants ADD COLUMN image TEXT');
   }
 
   // Auto-seed if empty
