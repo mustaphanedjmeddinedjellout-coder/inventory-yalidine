@@ -12,6 +12,7 @@ require('dotenv').config();
 const { setupDatabase } = require('./db/connection');
 
 const app = express();
+app.set('trust proxy', true);
 const PORT = process.env.PORT || 5000;
 
 const allowedOrigins = (process.env.CORS_ALLOWED_ORIGINS ||
