@@ -23,3 +23,16 @@ export function submitCheckout(payload) {
     body: JSON.stringify(payload),
   });
 }
+
+export function fetchWilayas() {
+  return request('/api/yalidine/wilayas');
+}
+
+export function fetchCommunes(wilayaId) {
+  return request(`/api/yalidine/communes?wilaya_id=${wilayaId}`);
+}
+
+export function fetchDeliveryFees({ wilayaId, isStopdesk }) {
+  const stopdesk = isStopdesk ? 1 : 0;
+  return request(`/api/yalidine/fees?wilaya_id=${wilayaId}&is_stopdesk=${stopdesk}`);
+}
