@@ -132,7 +132,7 @@ export default function Checkout() {
     return () => {
       active = false;
     };
-  }, [form.wilayaId, form.deliveryMethod]);
+  }, [form.wilayaId, form.deliveryMethod, form.communeId]);
 
   useEffect(() => {
     if (!singleProductId) {
