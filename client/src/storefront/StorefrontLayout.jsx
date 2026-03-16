@@ -1,4 +1,5 @@
 import { Link, Outlet, useLocation } from 'react-router-dom';
+import { ShoppingCart } from 'lucide-react';
 import { useCart } from './cart-context';
 
 export default function StorefrontLayout() {
@@ -8,16 +9,28 @@ export default function StorefrontLayout() {
   return (
     <div className="min-h-screen bg-cream text-ink">
       <header className="sticky top-0 z-40 border-b border-black/10 bg-cream/90 backdrop-blur">
-        <div className="container-bleed flex items-center justify-between py-5">
-          <Link to="/" className="text-[18px] font-display tracking-[0.2em]">
-            NOIRE
+        <div className="container-bleed grid items-center gap-6 py-5 md:grid-cols-[auto_1fr_auto]">
+          <Link to="/" className="flex items-center">
+            <img
+              src="/logo.png"
+              alt="Noire"
+              className="h-6 w-auto"
+            />
           </Link>
-          <nav className="flex items-center gap-6 text-[12px] uppercase tracking-[0.2em] text-black/60">
-            <Link to="/" className={location.pathname === '/' ? 'text-black' : ''}>Shop</Link>
-            <Link to="/cart" className={location.pathname.startsWith('/cart') ? 'text-black' : ''}>
-              Cart ({count})
-            </Link>
+          <nav className="flex items-center justify-center gap-6 text-[12px] uppercase tracking-[0.2em] text-black/60">
+            <Link to="/shop/tshirts" className={location.pathname.startsWith('/shop/tshirts') ? 'text-black' : ''}>T-Shirts</Link>
+            <Link to="/shop/pants" className={location.pathname.startsWith('/shop/pants') ? 'text-black' : ''}>Pants</Link>
+            <Link to="/shop/shoes" className={location.pathname.startsWith('/shop/shoes') ? 'text-black' : ''}>Shoes</Link>
           </nav>
+          <Link
+            to="/cart"
+            className={`inline-flex items-center justify-end gap-2 text-[12px] uppercase tracking-[0.2em] text-black/60 ${
+              location.pathname.startsWith('/cart') ? 'text-black' : ''
+            }`}
+          >
+            <ShoppingCart size={14} />
+            Cart ({count})
+          </Link>
         </div>
       </header>
 

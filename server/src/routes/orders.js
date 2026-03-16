@@ -44,6 +44,16 @@ router.post('/', async (req, res) => {
   }
 });
 
+// POST /api/orders/:id/approve - Approve and send to Yalidine
+router.post('/:id/approve', async (req, res) => {
+  try {
+    const order = await orderService.approve(parseInt(req.params.id));
+    success(res, order);
+  } catch (err) {
+    error(res, err.message, 400);
+  }
+});
+
 // DELETE /api/orders/:id - Delete order (restores stock)
 router.delete('/:id', async (req, res) => {
   try {

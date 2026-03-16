@@ -213,6 +213,7 @@ export default function Orders() {
         to_commune_name: selectedCommune || undefined,
         is_stopdesk: isStopdesk,
         yalidine_price: yalidinePrice !== '' ? parseFloat(yalidinePrice) : undefined,
+        approve: true,
         items: validItems.map((item) => ({
           product_id: parseInt(item.product_id),
           variant_id: parseInt(item.variant_id),
@@ -234,6 +235,17 @@ export default function Orders() {
     try {
       await orderApi.delete(id);
       toast.success('تم حذف الطلب واستعادة المخزون');
+      loadOrders();
+    } catch (err) {
+      toast.error(err.message);
+    }
+  }
+
+  async function handleApprove(id) {
+    if (!window.confirm('هل تريد تأكيد الطلب وإرساله إلى يالدين؟')) return;
+    try {
+      await orderApi.approve(id);
+      toast.success('تم إرسال الطلب إلى يالدين');
       loadOrders();
     } catch (err) {
       toast.error(err.message);
@@ -302,6 +314,7 @@ export default function Orders() {
                   <th className="text-right px-5 py-3 text-gray-500 font-medium">العناصر</th>
                   <th className="text-right px-5 py-3 text-gray-500 font-medium">الإجمالي</th>
                   <th className="text-right px-5 py-3 text-gray-500 font-medium">الربح</th>
+                  <th className="text-right px-5 py-3 text-gray-500 font-medium">الحالة</th>
                   <th className="text-right px-5 py-3 text-gray-500 font-medium">الشحن</th>
                   <th className="text-right px-5 py-3 text-gray-500 font-medium">التاريخ</th>
                   <th className="text-right px-5 py-3 text-gray-500 font-medium">إجراءات</th>
@@ -317,6 +330,17 @@ export default function Orders() {
                     <td className="px-5 py-3">{o.items_count} قطعة</td>
                     <td className="px-5 py-3 font-medium">{formatCurrency(o.total_amount)} da</td>
                     <td className="px-5 py-3 text-green-600 font-medium">{formatCurrency(o.total_profit)} da</td>
+                    <td className="px-5 py-3">
+                      {o.order_status === 'approved' ? (
+                        <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-green-100 text-green-700 text-xs font-medium">
+                          مؤكد
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-yellow-100 text-yellow-700 text-xs font-medium">
+                          في الانتظار
+                        </span>
+                      )}
+                    </td>
                     <td className="px-5 py-3">
                       {o.yalidine_tracking ? (
                         <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-green-100 text-green-700 text-xs font-medium">
@@ -342,6 +366,15 @@ export default function Orders() {
                         >
                           <Eye size={16} />
                         </button>
+                        {o.order_status !== 'approved' && o.to_wilaya_name && (
+                          <button
+                            onClick={() => handleApprove(o.id)}
+                            className="p-1.5 text-gray-400 hover:text-green-600 hover:bg-green-50 rounded-lg transition"
+                            title="تأكيد وإرسال"
+                          >
+                            <Truck size={16} />
+                          </button>
+                        )}
                         <button
                           onClick={() => handleDelete(o.id)}
                           className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition"
