@@ -41,7 +41,7 @@ export default function Checkout() {
       })
       .catch((err) => {
         if (!active) return;
-        setError(err.message || 'Failed to load wilayas');
+        setError(err.message || 'فشل تحميل الولايات');
       });
 
     return () => {
@@ -66,7 +66,7 @@ export default function Checkout() {
       })
       .catch((err) => {
         if (!active) return;
-        setError(err.message || 'Failed to load communes');
+        setError(err.message || 'فشل تحميل البلديات');
       });
 
     return () => {
@@ -88,7 +88,7 @@ export default function Checkout() {
       })
       .catch((err) => {
         if (!active) return;
-        setError(err.message || 'Failed to load stop desk centers');
+        setError(err.message || 'فشل تحميل مراكز الاستلام');
       });
 
     return () => {
@@ -128,12 +128,12 @@ export default function Checkout() {
   const submit = async () => {
     if (items.length === 0) return;
     if (!form.name || !form.phone || !form.wilayaId || !form.communeId || (form.deliveryMethod === 'home' && !form.address)) {
-      setError('Please fill all required fields.');
+      setError('يرجى ملء جميع الحقول المطلوبة.');
       return;
     }
 
     if (form.deliveryMethod === 'stopdesk' && !form.centerId) {
-      setError('Please select a stop desk.');
+      setError('يرجى اختيار مكتب الاستلام.');
       return;
     }
 
@@ -168,7 +168,7 @@ export default function Checkout() {
       clearCart();
       navigate(`/order-success/${orderRef}`);
     } catch (err) {
-      setError(err.message || 'Checkout failed');
+      setError(err.message || 'فشل إتمام الطلب');
     } finally {
       setLoading(false);
     }
@@ -176,22 +176,22 @@ export default function Checkout() {
 
   return (
     <div className="container-bleed py-12">
-      <h1 className="section-heading mb-8">Checkout</h1>
+      <h1 className="section-heading mb-8">إتمام الطلب</h1>
 
       {error && <p className="text-red-500 text-[13px] mb-4">{error}</p>}
 
       <div className="grid gap-8 lg:grid-cols-[1.1fr_0.9fr]">
         <div className="space-y-5">
           <div className="field-block">
-            <label>Full name</label>
+            <label>الاسم الكامل</label>
             <input className="input-field" value={form.name} onChange={(e) => set('name', e.target.value)} />
           </div>
           <div className="field-block">
-            <label>Phone</label>
+            <label>الهاتف</label>
             <input className="input-field" value={form.phone} onChange={(e) => set('phone', e.target.value)} />
           </div>
           <div className="field-block">
-            <label>Delivery method</label>
+            <label>طريقة التوصيل</label>
             <div className="grid grid-cols-2 gap-3">
               <button
                 type="button"
@@ -202,7 +202,7 @@ export default function Checkout() {
                 }`}
                 onClick={() => set('deliveryMethod', 'home')}
               >
-                Domicile
+                للمنزل
               </button>
               <button
                 type="button"
@@ -213,13 +213,13 @@ export default function Checkout() {
                 }`}
                 onClick={() => set('deliveryMethod', 'stopdesk')}
               >
-                Bureau Yalidine
+                مكتب ياليدين
               </button>
             </div>
           </div>
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="field-block">
-              <label>Wilaya</label>
+              <label>الولاية</label>
               <select
                 className="input-field"
                 value={form.wilayaId}
@@ -230,14 +230,14 @@ export default function Checkout() {
                   set('wilayaName', selected?.name || selected?.wilaya_name || '');
                 }}
               >
-                <option value="">Select wilaya</option>
+                <option value="">اختر الولاية</option>
                 {wilayas.map((w) => (
                   <option key={w.id} value={w.id}>{w.name || w.wilaya_name}</option>
                 ))}
               </select>
             </div>
             <div className="field-block">
-              <label>Commune</label>
+              <label>البلدية</label>
               <select
                 className="input-field"
                 value={form.communeId}
@@ -249,7 +249,7 @@ export default function Checkout() {
                 }}
                 disabled={!form.wilayaId}
               >
-                <option value="">Select commune</option>
+                <option value="">اختر البلدية</option>
                 {communes
                   .filter((c) => form.deliveryMethod !== 'stopdesk' || c.has_stop_desk)
                   .map((c) => (
@@ -260,7 +260,7 @@ export default function Checkout() {
           </div>
           {form.deliveryMethod === 'stopdesk' && (
             <div className="field-block">
-              <label>Bureau Yalidine</label>
+              <label>مكتب ياليدين</label>
               <select
                 className="input-field"
                 value={form.centerId}
@@ -272,7 +272,7 @@ export default function Checkout() {
                 }}
                 disabled={!form.wilayaId}
               >
-                <option value="">Select bureau Yalidine</option>
+                <option value="">اختر مكتب ياليدين</option>
                 {centers.map((c) => (
                   <option key={c.center_id || c.id} value={c.center_id || c.id}>
                     {c.name}
@@ -282,7 +282,7 @@ export default function Checkout() {
             </div>
           )}
           <div className="field-block">
-            <label>Address</label>
+            <label>العنوان</label>
             <input
               className="input-field"
               value={form.address}
@@ -291,37 +291,37 @@ export default function Checkout() {
             />
           </div>
           <div className="field-block">
-            <label>Notes</label>
+            <label>ملاحظات</label>
             <textarea className="input-field" rows={3} value={form.notes} onChange={(e) => set('notes', e.target.value)} />
           </div>
           <div className="flex flex-wrap gap-3">
             <Link to="/cart" className="btn-primary">
-              Back to bag
+              العودة للسلة
             </Link>
             <Link to="/" className="btn-primary">
-              Add another product
+              أضف منتجا آخر
             </Link>
           </div>
         </div>
 
         <div className="rounded-2xl border border-black/10 bg-white/70 p-6 space-y-4">
           <div className="flex items-center justify-between text-[13px]">
-            <span className="text-black/45">Subtotal</span>
+            <span className="text-black/45">المجموع الفرعي</span>
             <span className="font-medium">{formatDzd(subtotal)}</span>
           </div>
           <div className="flex items-center justify-between text-[13px]">
-            <span className="text-black/45">Delivery</span>
+            <span className="text-black/45">التوصيل</span>
             <span className="font-medium">
               {feeLoading ? '...' : formatDzd(deliveryPrice)}
             </span>
           </div>
           <div className="h-px bg-black/10" />
           <div className="flex items-center justify-between text-[14px] font-semibold">
-            <span>Total</span>
+            <span>الإجمالي</span>
             <span>{formatDzd(total)}</span>
           </div>
           <button className="btn-primary w-full" onClick={submit} disabled={loading}>
-            {loading ? 'Submitting...' : 'Confirm order'}
+            {loading ? 'جار الإرسال...' : 'تأكيد الطلب'}
           </button>
         </div>
       </div>
