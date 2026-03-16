@@ -232,6 +232,35 @@ export default function Checkout() {
 
       {error && <p className="text-red-500 text-[13px] mb-4">{error}</p>}
 
+      <div className="mb-8 rounded-2xl border border-black/10 bg-white/70 p-5">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <p className="text-[12px] uppercase tracking-[0.3em] text-black/40">Need to add items?</p>
+            <p className="text-[13px] text-black/60">Add another variant or go back to shop.</p>
+          </div>
+          <div className="flex flex-wrap gap-3">
+            {singleProductId && inlineProduct ? (
+              <button
+                type="button"
+                className="btn-primary"
+                onClick={() => {
+                  const section = document.getElementById('inline-variant');
+                  section?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }}
+              >
+                Add another variant
+              </button>
+            ) : null}
+            <Link to="/" className="btn-primary">
+              Back to shop
+            </Link>
+            <Link to="/cart" className="btn-primary">
+              Edit cart
+            </Link>
+          </div>
+        </div>
+      </div>
+
       <div className="grid gap-8 lg:grid-cols-[1.1fr_0.9fr]">
         <div className="space-y-5">
           <div className="field-block">
@@ -347,7 +376,7 @@ export default function Checkout() {
             <textarea className="input-field" rows={3} value={form.notes} onChange={(e) => set('notes', e.target.value)} />
           </div>
           {singleProductId && inlineProduct && (
-            <div className="rounded-2xl border border-black/10 bg-white/70 p-5 space-y-4">
+            <div id="inline-variant" className="rounded-2xl border border-black/10 bg-white/70 p-5 space-y-4">
               <div className="flex items-center justify-between">
                 <p className="text-[12px] uppercase tracking-[0.3em] text-black/40">Add another variant</p>
                 <span className="text-[12px] text-black/45">{inlineProduct.model_name}</span>
@@ -407,11 +436,6 @@ export default function Checkout() {
                 Add variant to cart
               </button>
             </div>
-          )}
-          {!singleProductId && (
-            <Link to="/" className="btn-primary inline-flex w-full justify-center">
-              Back to shop
-            </Link>
           )}
         </div>
 

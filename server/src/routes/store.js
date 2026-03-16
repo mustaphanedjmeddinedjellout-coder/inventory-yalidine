@@ -87,6 +87,13 @@ router.post('/checkout', storeApiKey, async (req, res) => {
     const firstname = nameParts[0] || fullName || null;
     const familyname = nameParts.length > 1 ? nameParts.slice(1).join(' ') : null;
 
+    const deliveryPrice = customer.deliveryPrice != null ? Number(customer.deliveryPrice) : 0;
+    const itemsTotal = items.reduce(
+      (sum, item) => sum + Number(item.selling_price || 0) * Number(item.quantity || 0),
+      0
+    );
+    const orderTotal = itemsTotal + deliveryPrice;
+
     const orderInput = {
       notes: customer.notes || null,
       firstname,
@@ -96,7 +103,7 @@ router.post('/checkout', storeApiKey, async (req, res) => {
       to_wilaya_name: customer.wilaya || null,
       to_commune_name: customer.commune || null,
       is_stopdesk: customer.deliveryMethod === 'stopdesk',
-      yalidine_price: customer.deliveryPrice != null ? customer.deliveryPrice : null,
+      yalidine_price: orderTotal,
       items: items.map((item) => ({
         product_id: Number(item.product_id),
         variant_id: Number(item.variant_id),
@@ -107,7 +114,6 @@ router.post('/checkout', storeApiKey, async (req, res) => {
 
     const order = await orderService.create(orderInput);
 
-    const deliveryPrice = customer.deliveryPrice != null ? Number(customer.deliveryPrice) : 0;
     const eventId = customer.eventId || `purchase-${order.order_number}`;
     const eventSourceUrl = req.get('origin') || req.get('referer') || '';
     const userData = metaCapi.buildUserData({
