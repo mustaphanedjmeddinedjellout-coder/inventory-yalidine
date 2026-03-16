@@ -64,6 +64,9 @@ export default function Cart() {
         </div>
       </div>
 
+      <Link to="/" className="btn-primary mt-6 inline-flex w-full justify-center">
+        Add another product
+      </Link>
       <Link to="/checkout" className="btn-primary mt-6 inline-flex w-full justify-center">
         Proceed to checkout
       </Link>
