@@ -19,7 +19,7 @@ export default function Product() {
   useEffect(() => {
     const id = extractIdFromSlug(slug || '');
     if (!id) {
-      setError('Product not found');
+      setError('المنتج غير موجود');
       setLoading(false);
       return;
     }
@@ -35,7 +35,7 @@ export default function Product() {
       })
       .catch((err) => {
         if (!active) return;
-        setError(err.message || 'Failed to load product');
+        setError(err.message || 'فشل تحميل المنتج');
       })
       .finally(() => {
         if (!active) return;
@@ -75,14 +75,14 @@ export default function Product() {
   };
 
   if (loading) {
-    return <div className="container-bleed py-16 text-[13px] text-black/50">Loading...</div>;
+    return <div className="container-bleed py-16 text-[13px] text-black/50">جار التحميل...</div>;
   }
 
   if (error || !product) {
     return (
       <div className="container-bleed py-16">
-        <p className="text-red-500 text-[13px]">{error || 'Product not found'}</p>
-        <Link to="/" className="btn-primary mt-6 inline-flex px-6">Back to shop</Link>
+        <p className="text-red-500 text-[13px]">{error || 'المنتج غير موجود'}</p>
+        <Link to="/" className="btn-primary mt-6 inline-flex px-6">العودة للمتجر</Link>
       </div>
     );
   }
@@ -90,7 +90,7 @@ export default function Product() {
   return (
     <div className="container-bleed py-12">
       <div className="grid gap-10 lg:grid-cols-2">
-        <div className="relative aspect-[3/4] w-full overflow-hidden bg-[#efeae2]">
+        <div className="relative aspect-3/4 w-full overflow-hidden bg-[#efeae2]">
           <img
             src={resolveImageUrl(displayImage)}
             alt={product.model_name}
@@ -100,14 +100,14 @@ export default function Product() {
 
         <div className="space-y-6">
           <div>
-            <p className="text-[11px] uppercase tracking-[0.3em] text-black/40">Live Stock</p>
+            <p className="text-[11px] uppercase tracking-[0.3em] text-black/40">المخزون المتاح</p>
             <h1 className="text-3xl font-display text-ink mt-3">{product.model_name}</h1>
             <p className="text-[16px] text-black/60 mt-2">{formatDzd(product.selling_price)}</p>
           </div>
 
           <div className="space-y-4">
             <div>
-              <p className="text-[11px] uppercase tracking-[0.3em] text-black/40">Color</p>
+              <p className="text-[11px] uppercase tracking-[0.3em] text-black/40">اللون</p>
               <div className="mt-3 flex flex-wrap gap-2">
                 {colors.map((color) => {
                   const isAvailable = availableVariants.some((v) => v.color === color && v.quantity > 0);
@@ -137,7 +137,7 @@ export default function Product() {
                           : 'border-black/10 text-black/30'
                       }`}
                     >
-                      {color || 'Default'}
+                      {color || 'افتراضي'}
                     </button>
                   );
                 })}
@@ -145,7 +145,7 @@ export default function Product() {
             </div>
 
             <div>
-              <p className="text-[11px] uppercase tracking-[0.3em] text-black/40">Size</p>
+              <p className="text-[11px] uppercase tracking-[0.3em] text-black/40">المقاس</p>
               <div className="mt-3 flex flex-wrap gap-2">
                 {sizes.map((size) => {
                   const isAvailable = availableVariants.some((v) => v.size === size && v.quantity > 0);
@@ -163,7 +163,7 @@ export default function Product() {
                           : 'border-black/10 text-black/30'
                       }`}
                     >
-                      {size || 'One Size'}
+                      {size || 'مقاس واحد'}
                     </button>
                   );
                 })}
@@ -172,8 +172,8 @@ export default function Product() {
 
             <div className="flex items-center justify-between rounded-2xl border border-black/10 bg-white/70 px-5 py-4">
               <div>
-                <p className="text-[11px] uppercase tracking-[0.3em] text-black/40">Quantity</p>
-                <p className="text-[11px] text-black/50">Available: {maxQuantity}</p>
+                <p className="text-[11px] uppercase tracking-[0.3em] text-black/40">الكمية</p>
+                <p className="text-[11px] text-black/50">المتوفر: {maxQuantity}</p>
               </div>
               <QuantityPicker value={quantity} onChange={setQuantity} max={maxQuantity || 1} />
             </div>
@@ -185,7 +185,7 @@ export default function Product() {
             disabled={!selectedVariant || maxQuantity <= 0}
             onClick={onAdd}
           >
-            Add to cart
+            أضف إلى السلة
           </button>
 
           <p className="text-[12px] text-black/40">

@@ -9,9 +9,9 @@ export default function Cart() {
   if (items.length === 0) {
     return (
       <div className="container-bleed py-20 text-center">
-        <p className="text-[14px] text-black/50">Your cart is empty.</p>
+        <p className="text-[14px] text-black/50">سلتك فارغة.</p>
         <Link to="/" className="btn-primary mt-6 inline-flex px-8">
-          Continue shopping
+          متابعة التسوق
         </Link>
       </div>
     );
@@ -20,8 +20,8 @@ export default function Cart() {
   return (
     <div className="container-bleed py-12">
       <div className="flex items-center justify-between mb-8">
-        <h1 className="section-heading">Your Bag</h1>
-        <span className="text-[12px] text-black/40">{items.length} items</span>
+        <h1 className="section-heading">سلة المشتريات</h1>
+        <span className="text-[12px] text-black/40">{items.length} منتجات</span>
       </div>
 
       <div className="space-y-4">
@@ -48,7 +48,7 @@ export default function Cart() {
                     className="text-[12px] text-black/35 hover:text-red-500"
                     onClick={() => removeItem(item)}
                   >
-                    Remove
+                    حذف
                   </button>
                 </div>
               </div>
@@ -59,16 +59,19 @@ export default function Cart() {
 
       <div className="mt-8 rounded-2xl border border-black/10 bg-white/70 p-6">
         <div className="flex items-center justify-between">
-          <span className="text-[12px] uppercase tracking-[0.3em] text-black/40">Subtotal</span>
+          <span className="text-[12px] uppercase tracking-[0.3em] text-black/40">المجموع الفرعي</span>
           <span className="text-[16px] font-semibold">{formatDzd(subtotal)}</span>
         </div>
       </div>
 
-      <Link to="/" className="btn-primary mt-6 inline-flex w-full justify-center">
-        Add another product
+      <Link
+        to="/"
+        className="mt-6 inline-flex w-full items-center justify-center rounded-full border border-black bg-transparent px-6 py-3 text-[0.75rem] uppercase tracking-[0.3em] text-black transition-colors hover:bg-black hover:text-white"
+      >
+        أضف منتجا آخر
       </Link>
       <Link to="/checkout" className="btn-primary mt-6 inline-flex w-full justify-center">
-        Proceed to checkout
+        متابعة إلى الدفع
       </Link>
     </div>
   );

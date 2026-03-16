@@ -29,7 +29,7 @@ export default function StorefrontLayout() {
             }`}
           >
             <ShoppingCart size={14} />
-            Cart ({count})
+            السلة ({count})
           </Link>
         </div>
       </header>
