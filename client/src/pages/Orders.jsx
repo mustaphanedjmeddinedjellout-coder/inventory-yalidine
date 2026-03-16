@@ -3,7 +3,7 @@
  * Create and manage orders with product/variant selection.
  * Price snapshots are captured at order creation time.
  */
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { orderApi, productApi, yalidineApi } from '../api';
 import Modal from '../components/Modal';
 import LoadingSpinner from '../components/LoadingSpinner';
@@ -11,6 +11,8 @@ import { Plus, Trash2, Eye, ShoppingCart, Calendar, Truck, Package } from 'lucid
 import toast from 'react-hot-toast';
 
 export default function Orders() {
+  const EMPTY_ORDER_ITEM = { product_id: '', variant_id: '', quantity: 1 };
+
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [dateFilter, setDateFilter] = useState('');
@@ -43,6 +45,8 @@ export default function Orders() {
   // View order state
   const [viewOrder, setViewOrder] = useState(null);
   const [viewOpen, setViewOpen] = useState(false);
+  const variantRefs = useRef({});
+  const quantityRefs = useRef({});
 
   useEffect(() => {
     loadOrders();
@@ -66,7 +70,7 @@ export default function Orders() {
     try {
       const res = await productApi.getForOrder();
       setProducts(res.data);
-      setOrderItems([{ product_id: '', variant_id: '', quantity: 1 }]);
+      setOrderItems([{ ...EMPTY_ORDER_ITEM }]);
       setNotes('');
       // Reset customer fields
       setFirstname('');
@@ -147,23 +151,135 @@ export default function Orders() {
   }
 
   function addItem() {
-    setOrderItems((prev) => [...prev, { product_id: '', variant_id: '', quantity: 1 }]);
+    setOrderItems((prev) => [...prev, { ...EMPTY_ORDER_ITEM }]);
+  }
+
+  function duplicateItem(index) {
+    const source = orderItems[index];
+    if (!source?.product_id) return;
+    setOrderItems((prev) => {
+      const next = [...prev];
+      next.splice(index + 1, 0, {
+        product_id: source.product_id,
+        variant_id: source.variant_id,
+        quantity: parseInt(source.quantity) || 1,
+      });
+      return next;
+    });
+  }
+
+  function addSameProductNewVariant(index) {
+    const source = orderItems[index];
+    if (!source?.product_id) return;
+    setOrderItems((prev) => {
+      const next = [...prev];
+      next.splice(index + 1, 0, {
+        product_id: source.product_id,
+        variant_id: '',
+        quantity: 1,
+      });
+      return next;
+    });
+
+    setTimeout(() => {
+      variantRefs.current[index + 1]?.focus();
+    }, 0);
   }
 
   function removeItem(index) {
     setOrderItems((prev) => prev.filter((_, i) => i !== index));
   }
 
+  function getVariantStock(productId, variantId) {
+    if (!productId || !variantId) return null;
+    const product = getSelectedProduct(productId);
+    const variant = product?.variants?.find((v) => String(v.id) === String(variantId));
+    return variant?.quantity ?? null;
+  }
+
+  function hasTrailingEmptyRow(rows) {
+    if (rows.length === 0) return false;
+    const last = rows[rows.length - 1];
+    return !last.product_id && !last.variant_id;
+  }
+
   function updateItem(index, field, value) {
+    let merged = false;
+    let shouldFocusVariant = false;
+    let shouldFocusQty = false;
+
     setOrderItems((prev) => {
       const items = [...prev];
-      items[index] = { ...items[index], [field]: value };
-      // Reset variant when product changes
+      const current = { ...items[index], [field]: value };
+
       if (field === 'product_id') {
-        items[index].variant_id = '';
+        current.variant_id = '';
+        current.quantity = 1;
+        shouldFocusVariant = Boolean(value);
       }
+
+      if (field === 'variant_id') {
+        shouldFocusQty = Boolean(value && current.product_id);
+      }
+
+      if (field === 'quantity') {
+        const stock = getVariantStock(current.product_id, current.variant_id);
+        const qty = Math.max(1, parseInt(value) || 1);
+        current.quantity = stock != null ? Math.min(qty, stock) : qty;
+      }
+
+      if (field !== 'quantity') {
+        const qty = Math.max(1, parseInt(current.quantity) || 1);
+        const stock = getVariantStock(current.product_id, current.variant_id);
+        current.quantity = stock != null ? Math.min(qty, stock) : qty;
+      }
+
+      items[index] = current;
+
+      if (field === 'variant_id' && current.product_id && current.variant_id) {
+        const duplicateIndex = items.findIndex(
+          (item, i) =>
+            i !== index &&
+            String(item.product_id) === String(current.product_id) &&
+            String(item.variant_id) === String(current.variant_id)
+        );
+
+        if (duplicateIndex !== -1) {
+          const existingQty = Math.max(1, parseInt(items[duplicateIndex].quantity) || 1);
+          const incomingQty = Math.max(1, parseInt(current.quantity) || 1);
+          const stock = getVariantStock(current.product_id, current.variant_id);
+          const mergedQty = stock != null
+            ? Math.min(existingQty + incomingQty, stock)
+            : existingQty + incomingQty;
+
+          items[duplicateIndex] = { ...items[duplicateIndex], quantity: mergedQty };
+          items[index] = { ...EMPTY_ORDER_ITEM };
+          merged = true;
+          shouldFocusVariant = true;
+          shouldFocusQty = false;
+        } else if (index === items.length - 1 && !hasTrailingEmptyRow(items)) {
+          items.push({ ...EMPTY_ORDER_ITEM });
+        }
+      }
+
       return items;
     });
+
+    if (merged) {
+      toast.success('تم دمج نفس المتغير تلقائياً');
+    }
+
+    if (shouldFocusVariant) {
+      setTimeout(() => {
+        variantRefs.current[index]?.focus();
+      }, 0);
+    }
+
+    if (shouldFocusQty) {
+      setTimeout(() => {
+        quantityRefs.current[index]?.focus();
+      }, 0);
+    }
   }
 
   function getSelectedProduct(productId) {
@@ -602,6 +718,9 @@ export default function Orders() {
                     {product && (
                       <div className="flex items-center gap-2">
                         <select
+                          ref={(el) => {
+                            variantRefs.current[i] = el;
+                          }}
                           value={item.variant_id}
                           onChange={(e) => updateItem(i, 'variant_id', e.target.value)}
                           className="flex-1 px-3 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary bg-white"
@@ -614,6 +733,9 @@ export default function Orders() {
                           ))}
                         </select>
                         <input
+                          ref={(el) => {
+                            quantityRefs.current[i] = el;
+                          }}
                           type="number"
                           min="1"
                           max={getSelectedVariant(item.product_id, item.variant_id)?.quantity || 999}
@@ -624,6 +746,25 @@ export default function Orders() {
                         />
                       </div>
                     )}
+
+                    <div className="flex flex-wrap items-center gap-2 pt-1">
+                      <button
+                        type="button"
+                        onClick={() => duplicateItem(i)}
+                        disabled={!item.product_id}
+                        className="px-2.5 py-1 rounded-lg border border-gray-200 text-xs text-gray-700 hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed"
+                      >
+                        نسخ السطر
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => addSameProductNewVariant(i)}
+                        disabled={!item.product_id}
+                        className="px-2.5 py-1 rounded-lg border border-gray-200 text-xs text-gray-700 hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed"
+                      >
+                        + نفس المنتج (متغير جديد)
+                      </button>
+                    </div>
 
                     {product && item.quantity > 0 && (
                       <div className="text-xs text-gray-500">
