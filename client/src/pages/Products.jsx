@@ -17,7 +17,7 @@ const emptyProduct = {
   category: 'T-Shirt',
   selling_price: '',
   cost_price: '',
-  variants: [{ color: '', size: '', quantity: 0 }],
+  variants: [{ color: '', size: '', quantity: 0, image: '' }],
 };
 
 export default function Products() {
@@ -48,7 +48,7 @@ export default function Products() {
 
   function openCreate() {
     setEditing(null);
-    setForm({ ...emptyProduct, variants: [{ color: '', size: '', quantity: 0 }] });
+    setForm({ ...emptyProduct, variants: [{ color: '', size: '', quantity: 0, image: '' }] });
     setModalOpen(true);
   }
 
@@ -59,7 +59,7 @@ export default function Products() {
       category: product.category,
       selling_price: product.selling_price,
       cost_price: product.cost_price,
-      variants: product.variants.length > 0 ? product.variants.map((v) => ({ ...v })) : [{ color: '', size: '', quantity: 0 }],
+      variants: product.variants.length > 0 ? product.variants.map((v) => ({ ...v })) : [{ color: '', size: '', quantity: 0, image: '' }],
     });
     setModalOpen(true);
   }
@@ -108,7 +108,7 @@ export default function Products() {
   }
 
   function addVariant() {
-    setForm((f) => ({ ...f, variants: [...f.variants, { color: '', size: '', quantity: 0 }] }));
+    setForm((f) => ({ ...f, variants: [...f.variants, { color: '', size: '', quantity: 0, image: '' }] }));
   }
 
   function removeVariant(index) {
@@ -344,6 +344,13 @@ export default function Products() {
                     value={v.quantity}
                     onChange={(e) => updateVariant(i, 'quantity', e.target.value)}
                     className="w-20 px-3 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                  />
+                  <input
+                    type="text"
+                    placeholder="رابط صورة اللون"
+                    value={v.image || ''}
+                    onChange={(e) => updateVariant(i, 'image', e.target.value)}
+                    className="flex-[1.5] px-3 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
                   />
                   {form.variants.length > 1 && (
                     <button

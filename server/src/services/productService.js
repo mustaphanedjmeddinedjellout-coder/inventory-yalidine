@@ -74,8 +74,8 @@ const productService = {
     if (variants && variants.length > 0) {
       for (const v of variants) {
         await db.execute({
-          sql: 'INSERT INTO product_variants (product_id, color, size, quantity) VALUES (?, ?, ?, ?)',
-          args: [productId, v.color || '', v.size || '', v.quantity || 0],
+          sql: 'INSERT INTO product_variants (product_id, color, size, quantity, image) VALUES (?, ?, ?, ?, ?)',
+          args: [productId, v.color || '', v.size || '', v.quantity || 0, v.image || null],
         });
       }
     }
@@ -112,13 +112,13 @@ const productService = {
       for (const v of variants) {
         if (v.id) {
           await db.execute({
-            sql: `UPDATE product_variants SET color = ?, size = ?, quantity = ?, updated_at = datetime('now') WHERE id = ? AND product_id = ?`,
-            args: [v.color || '', v.size || '', v.quantity || 0, v.id, id],
+            sql: `UPDATE product_variants SET color = ?, size = ?, quantity = ?, image = ?, updated_at = datetime('now') WHERE id = ? AND product_id = ?`,
+            args: [v.color || '', v.size || '', v.quantity || 0, v.image || null, v.id, id],
           });
         } else {
           await db.execute({
-            sql: 'INSERT INTO product_variants (product_id, color, size, quantity) VALUES (?, ?, ?, ?)',
-            args: [id, v.color || '', v.size || '', v.quantity || 0],
+            sql: 'INSERT INTO product_variants (product_id, color, size, quantity, image) VALUES (?, ?, ?, ?, ?)',
+            args: [id, v.color || '', v.size || '', v.quantity || 0, v.image || null],
           });
         }
       }
