@@ -8,6 +8,7 @@ import Modal from '../components/Modal';
 import LoadingSpinner from '../components/LoadingSpinner';
 import { Plus, Edit, Trash2, Search, Package } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { resolveImageUrl } from '../storefront/utils';
 
 const CATEGORIES = ['T-Shirt', 'Pants', 'Shoes'];
 const CATEGORY_LABELS = { 'T-Shirt': 'تيشيرت', Pants: 'بنطلون', Shoes: 'حذاء' };
@@ -29,6 +30,7 @@ export default function Products() {
   const [editing, setEditing] = useState(null);
   const [form, setForm] = useState({ ...emptyProduct });
   const [saving, setSaving] = useState(false);
+  const [uploading, setUploading] = useState({});
 
   useEffect(() => {
     loadProducts();
@@ -121,6 +123,24 @@ export default function Products() {
       variants[index] = { ...variants[index], [field]: value };
       return { ...f, variants };
     });
+  }
+
+  async function uploadVariantImage(index, file) {
+    if (!file) return;
+    try {
+      setUploading((prev) => ({ ...prev, [index]: true }));
+      const formData = new FormData();
+      formData.append('file', file);
+      const res = await productApi.uploadImage(formData);
+      const imagePath = res.data?.path;
+      if (!imagePath) throw new Error('Upload failed');
+      updateVariant(index, 'image', imagePath);
+      toast.success('تم رفع الصورة');
+    } catch (err) {
+      toast.error(err.message || 'تعذر رفع الصورة');
+    } finally {
+      setUploading((prev) => ({ ...prev, [index]: false }));
+    }
   }
 
   const formatCurrency = (val) =>
@@ -322,7 +342,7 @@ export default function Products() {
             </div>
             <div className="space-y-2">
               {form.variants.map((v, i) => (
-                <div key={i} className="flex items-center gap-2">
+                <div key={i} className="grid gap-2 sm:grid-cols-[1.2fr_0.7fr_0.6fr_1.6fr_auto] items-center">
                   <input
                     type="text"
                     placeholder="اللون"
@@ -345,13 +365,22 @@ export default function Products() {
                     onChange={(e) => updateVariant(i, 'quantity', e.target.value)}
                     className="w-20 px-3 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
                   />
-                  <input
-                    type="text"
-                    placeholder="رابط صورة اللون"
-                    value={v.image || ''}
-                    onChange={(e) => updateVariant(i, 'image', e.target.value)}
-                    className="flex-[1.5] px-3 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
-                  />
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={(e) => uploadVariantImage(i, e.target.files?.[0])}
+                      className="w-full text-xs"
+                    />
+                    {uploading[i] && <span className="text-[11px] text-gray-400">...رفع</span>}
+                  </div>
+                  {v.image && (
+                    <img
+                      src={resolveImageUrl(v.image)}
+                      alt="preview"
+                      className="h-10 w-10 rounded object-cover border border-gray-200"
+                    />
+                  )}
                   {form.variants.length > 1 && (
                     <button
                       type="button"

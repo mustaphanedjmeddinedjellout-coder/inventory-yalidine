@@ -8,6 +8,10 @@ export const productApi = {
   create: (data) => api.post('/products', data),
   update: (id, data) => api.put(`/products/${id}`, data),
   delete: (id) => api.delete(`/products/${id}`),
+  uploadImage: (formData) =>
+    api.post('/uploads', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    }),
 };
 
 export const orderApi = {

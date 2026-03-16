@@ -61,6 +61,7 @@ app.use('/api/orders', require('./routes/orders'));
 app.use('/api/analytics', require('./routes/analytics'));
 app.use('/api/yalidine', require('./routes/yalidine'));
 app.use('/api/store', require('./routes/store'));
+app.use('/api/uploads', require('./routes/uploads'));
 
 // Health check
 app.get('/api/health', (req, res) => {
@@ -70,6 +71,9 @@ app.get('/api/health', (req, res) => {
 // Error handling middleware
 app.use((err, req, res, next) => {
   console.error('Unhandled error:', err);
+  if (err && err.message && err.message.includes('image uploads')) {
+    return res.status(400).json({ success: false, error: err.message });
+  }
   res.status(500).json({ success: false, error: 'خطأ داخلي في الخادم' });
 });
 
