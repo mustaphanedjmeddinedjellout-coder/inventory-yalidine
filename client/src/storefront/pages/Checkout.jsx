@@ -1,32 +1,99 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useCart } from '../cart-context';
 import { formatDzd } from '../utils';
-import { submitCheckout } from '../api';
+import { submitCheckout, fetchCommunes, fetchDeliveryFees, fetchWilayas } from '../api';
 
 export default function Checkout() {
   const { items, subtotal, clearCart } = useCart();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [wilayas, setWilayas] = useState([]);
+  const [communes, setCommunes] = useState([]);
+  const [feeLoading, setFeeLoading] = useState(false);
   const [form, setForm] = useState({
     name: '',
     phone: '',
-    wilaya: '',
-    commune: '',
+    wilayaId: '',
+    wilayaName: '',
+    communeId: '',
+    communeName: '',
     address: '',
     deliveryMethod: 'home',
     notes: ''
   });
 
-  const deliveryPrice = 0;
+  const [deliveryPrice, setDeliveryPrice] = useState(0);
   const total = useMemo(() => subtotal + deliveryPrice, [subtotal, deliveryPrice]);
 
   const set = (key, value) => setForm((prev) => ({ ...prev, [key]: value }));
 
+  useEffect(() => {
+    let active = true;
+    fetchWilayas()
+      .then((data) => {
+        if (!active) return;
+        setWilayas(data || []);
+      })
+      .catch((err) => {
+        if (!active) return;
+        setError(err.message || 'Failed to load wilayas');
+      });
+
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!form.wilayaId) return;
+    let active = true;
+    setCommunes([]);
+    set('communeId', '');
+    set('communeName', '');
+
+    fetchCommunes(form.wilayaId)
+      .then((data) => {
+        if (!active) return;
+        setCommunes(data || []);
+      })
+      .catch((err) => {
+        if (!active) return;
+        setError(err.message || 'Failed to load communes');
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [form.wilayaId]);
+
+  useEffect(() => {
+    if (!form.wilayaId) return;
+    let active = true;
+    setFeeLoading(true);
+    fetchDeliveryFees({ wilayaId: form.wilayaId, isStopdesk: form.deliveryMethod === 'stopdesk' })
+      .then((data) => {
+        if (!active) return;
+        setDeliveryPrice(Number(data?.price) || 0);
+      })
+      .catch(() => {
+        if (!active) return;
+        setDeliveryPrice(0);
+      })
+      .finally(() => {
+        if (!active) return;
+        setFeeLoading(false);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [form.wilayaId, form.deliveryMethod]);
+
   const submit = async () => {
     if (items.length === 0) return;
-    if (!form.name || !form.phone || !form.wilaya || !form.commune || !form.address) {
+    if (!form.name || !form.phone || !form.wilayaId || !form.communeId || (form.deliveryMethod === 'home' && !form.address)) {
       setError('Please fill all required fields.');
       return;
     }
@@ -39,8 +106,8 @@ export default function Checkout() {
         customer: {
           name: form.name,
           phone: form.phone,
-          wilaya: form.wilaya,
-          commune: form.commune,
+          wilaya: form.wilayaName,
+          commune: form.communeName,
           address: form.address,
           deliveryMethod: form.deliveryMethod,
           deliveryPrice,
@@ -84,11 +151,67 @@ export default function Checkout() {
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="field-block">
               <label>Wilaya</label>
-              <input className="input-field" value={form.wilaya} onChange={(e) => set('wilaya', e.target.value)} />
+              <select
+                className="input-field"
+                value={form.wilayaId}
+                onChange={(e) => {
+                  const wilayaId = e.target.value;
+                  const selected = wilayas.find((w) => String(w.id) === String(wilayaId));
+                  set('wilayaId', wilayaId);
+                  set('wilayaName', selected?.name || selected?.wilaya_name || '');
+                }}
+              >
+                <option value="">Select wilaya</option>
+                {wilayas.map((w) => (
+                  <option key={w.id} value={w.id}>{w.name || w.wilaya_name}</option>
+                ))}
+              </select>
             </div>
             <div className="field-block">
               <label>Commune</label>
-              <input className="input-field" value={form.commune} onChange={(e) => set('commune', e.target.value)} />
+              <select
+                className="input-field"
+                value={form.communeId}
+                onChange={(e) => {
+                  const communeId = e.target.value;
+                  const selected = communes.find((c) => String(c.id) === String(communeId));
+                  set('communeId', communeId);
+                  set('communeName', selected?.name || selected?.commune_name || '');
+                }}
+                disabled={!form.wilayaId}
+              >
+                <option value="">Select commune</option>
+                {communes.map((c) => (
+                  <option key={c.id} value={c.id}>{c.name || c.commune_name}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+          <div className="field-block">
+            <label>Delivery method</label>
+            <div className="grid grid-cols-2 gap-3">
+              <button
+                type="button"
+                className={`rounded-full border px-4 py-2 text-[12px] uppercase tracking-wider transition-all ${
+                  form.deliveryMethod === 'home'
+                    ? 'border-black bg-black text-white'
+                    : 'border-black/20 text-black/70 hover:border-black'
+                }`}
+                onClick={() => set('deliveryMethod', 'home')}
+              >
+                Domicile
+              </button>
+              <button
+                type="button"
+                className={`rounded-full border px-4 py-2 text-[12px] uppercase tracking-wider transition-all ${
+                  form.deliveryMethod === 'stopdesk'
+                    ? 'border-black bg-black text-white'
+                    : 'border-black/20 text-black/70 hover:border-black'
+                }`}
+                onClick={() => set('deliveryMethod', 'stopdesk')}
+              >
+                Stop Desk
+              </button>
             </div>
           </div>
           <div className="field-block">
@@ -108,7 +231,9 @@ export default function Checkout() {
           </div>
           <div className="flex items-center justify-between text-[13px]">
             <span className="text-black/45">Delivery</span>
-            <span className="font-medium">{formatDzd(deliveryPrice)}</span>
+            <span className="font-medium">
+              {feeLoading ? '...' : formatDzd(deliveryPrice)}
+            </span>
           </div>
           <div className="h-px bg-black/10" />
           <div className="flex items-center justify-between text-[14px] font-semibold">

@@ -95,6 +95,15 @@ const yalidineService = {
   },
 
   /**
+   * Get delivery fees for a wilaya and method.
+   */
+  async getFees({ wilayaId, isStopdesk } = {}) {
+    if (!wilayaId) throw new Error('wilayaId is required');
+    const stopdeskFlag = isStopdesk ? 1 : 0;
+    return request('GET', `/fees/?to_wilaya_id=${wilayaId}&is_stopdesk=${stopdeskFlag}`);
+  },
+
+  /**
    * Create a parcel (shipment) for an order.
    * @param {Object} order – the order object from DB (must have customer/shipping fields)
    * @param {string} productList – description of products in the parcel

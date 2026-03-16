@@ -46,6 +46,28 @@ router.get('/centers', async (req, res) => {
   }
 });
 
+// GET /api/yalidine/fees?wilaya_id=16&is_stopdesk=0 – Delivery fees
+router.get('/fees', async (req, res) => {
+  try {
+    const { wilaya_id, is_stopdesk } = req.query;
+    if (!wilaya_id) return error(res, 'wilaya_id is required', 400);
+    const result = await yalidineService.getFees({
+      wilayaId: wilaya_id,
+      isStopdesk: String(is_stopdesk) === '1' || String(is_stopdesk).toLowerCase() === 'true',
+    });
+    const payload = result && result.data ? result.data : result;
+    const data = Array.isArray(payload) ? payload[0] || {} : payload || {};
+    const isStopdesk = String(is_stopdesk) === '1' || String(is_stopdesk).toLowerCase() === 'true';
+    const price = isStopdesk
+      ? data.stopdesk_price ?? data.stopdesk ?? data.stop_desk_price ?? data.price
+      : data.home_price ?? data.home ?? data.domicile_price ?? data.price;
+
+    success(res, { price: typeof price === 'number' ? price : Number(price) || 0 });
+  } catch (err) {
+    error(res, err.message);
+  }
+});
+
 // GET /api/yalidine/tracking/:tracking – Get parcel tracking info
 router.get('/tracking/:tracking', async (req, res) => {
   try {
