@@ -49,12 +49,15 @@ router.get('/centers', async (req, res) => {
 // GET /api/yalidine/fees?wilaya_id=16&is_stopdesk=0 – Delivery fees
 router.get('/fees', async (req, res) => {
   try {
-    const { wilaya_id, is_stopdesk } = req.query;
+    const { wilaya_id, is_stopdesk, debug } = req.query;
     if (!wilaya_id) return error(res, 'wilaya_id is required', 400);
     const result = await yalidineService.getFees({
       wilayaId: wilaya_id,
       isStopdesk: String(is_stopdesk) === '1' || String(is_stopdesk).toLowerCase() === 'true',
     });
+    if (String(debug) === '1') {
+      return success(res, { raw: result });
+    }
     const payload = result && result.data ? result.data : result;
     const data = Array.isArray(payload) ? payload[0] || {} : payload || {};
     const isStopdesk = String(is_stopdesk) === '1' || String(is_stopdesk).toLowerCase() === 'true';
