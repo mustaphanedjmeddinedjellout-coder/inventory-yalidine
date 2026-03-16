@@ -36,9 +36,13 @@ export function fetchCommunes(wilayaId) {
   return request(`/api/yalidine/communes?wilaya_id=${wilayaId}`);
 }
 
-export function fetchDeliveryFees({ wilayaId, isStopdesk }) {
+export function fetchDeliveryFees({ wilayaId, isStopdesk, communeId }) {
   const stopdesk = isStopdesk ? 1 : 0;
-  return request(`/api/yalidine/fees?wilaya_id=${wilayaId}&is_stopdesk=${stopdesk}`);
+  const params = new URLSearchParams();
+  params.set('wilaya_id', wilayaId);
+  params.set('is_stopdesk', String(stopdesk));
+  if (communeId) params.set('commune_id', communeId);
+  return request(`/api/yalidine/fees?${params.toString()}`);
 }
 
 export function fetchCenters({ wilayaId, communeId }) {
