@@ -242,6 +242,33 @@ export default function Checkout() {
             <label>Phone</label>
             <input className="input-field" value={form.phone} onChange={(e) => set('phone', e.target.value)} />
           </div>
+          <div className="field-block">
+            <label>Delivery method</label>
+            <div className="grid grid-cols-2 gap-3">
+              <button
+                type="button"
+                className={`rounded-full border px-4 py-2 text-[12px] uppercase tracking-wider transition-all ${
+                  form.deliveryMethod === 'home'
+                    ? 'border-black bg-black text-white'
+                    : 'border-black/20 text-black/70 hover:border-black'
+                }`}
+                onClick={() => set('deliveryMethod', 'home')}
+              >
+                Domicile
+              </button>
+              <button
+                type="button"
+                className={`rounded-full border px-4 py-2 text-[12px] uppercase tracking-wider transition-all ${
+                  form.deliveryMethod === 'stopdesk'
+                    ? 'border-black bg-black text-white'
+                    : 'border-black/20 text-black/70 hover:border-black'
+                }`}
+                onClick={() => set('deliveryMethod', 'stopdesk')}
+              >
+                Bureau Yalidine
+              </button>
+            </div>
+          </div>
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="field-block">
               <label>Wilaya</label>
@@ -275,37 +302,12 @@ export default function Checkout() {
                 disabled={!form.wilayaId}
               >
                 <option value="">Select commune</option>
-                {communes.map((c) => (
-                  <option key={c.id} value={c.id}>{c.name || c.commune_name}</option>
-                ))}
+                {communes
+                  .filter((c) => form.deliveryMethod !== 'stopdesk' || c.has_stop_desk)
+                  .map((c) => (
+                    <option key={c.id} value={c.id}>{c.name || c.commune_name}</option>
+                  ))}
               </select>
-            </div>
-          </div>
-          <div className="field-block">
-            <label>Delivery method</label>
-            <div className="grid grid-cols-2 gap-3">
-              <button
-                type="button"
-                className={`rounded-full border px-4 py-2 text-[12px] uppercase tracking-wider transition-all ${
-                  form.deliveryMethod === 'home'
-                    ? 'border-black bg-black text-white'
-                    : 'border-black/20 text-black/70 hover:border-black'
-                }`}
-                onClick={() => set('deliveryMethod', 'home')}
-              >
-                Domicile
-              </button>
-              <button
-                type="button"
-                className={`rounded-full border px-4 py-2 text-[12px] uppercase tracking-wider transition-all ${
-                  form.deliveryMethod === 'stopdesk'
-                    ? 'border-black bg-black text-white'
-                    : 'border-black/20 text-black/70 hover:border-black'
-                }`}
-                onClick={() => set('deliveryMethod', 'stopdesk')}
-              >
-                Bureau Yalidine
-              </button>
             </div>
           </div>
           {form.deliveryMethod === 'stopdesk' && (
