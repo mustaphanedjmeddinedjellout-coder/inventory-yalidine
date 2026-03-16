@@ -4,6 +4,7 @@ const { db } = require('../db/connection');
 const orderService = require('../services/orderService');
 const storeApiKey = require('../middleware/storeApiKey');
 const { success, error } = require('../utils/response');
+const metaCapi = require('../services/metaCapi');
 
 async function fetchVariants(productId) {
   const variantsResult = await db.execute({
@@ -71,6 +72,16 @@ router.post('/checkout', storeApiKey, async (req, res) => {
       return error(res, 'Invalid checkout payload', 400);
     }
 
+    const requiredFields = ['name', 'phone', 'wilaya', 'commune', 'address'];
+    const missing = requiredFields.filter((field) => !String(customer[field] || '').trim());
+    if (missing.length > 0) {
+      return error(res, `Missing required fields: ${missing.join(', ')}`, 400);
+    }
+
+    if (customer.deliveryMethod === 'stopdesk' && !String(customer.centerId || '').trim()) {
+      return error(res, 'Missing required fields: centerId', 400);
+    }
+
     const fullName = (customer.name || '').trim();
     const nameParts = fullName.split(' ').filter(Boolean);
     const firstname = nameParts[0] || fullName || null;
@@ -95,6 +106,40 @@ router.post('/checkout', storeApiKey, async (req, res) => {
     };
 
     const order = await orderService.create(orderInput);
+
+    const deliveryPrice = customer.deliveryPrice != null ? Number(customer.deliveryPrice) : 0;
+    const eventId = customer.eventId || `purchase-${order.order_number}`;
+    const eventSourceUrl = req.get('origin') || req.get('referer') || '';
+    const userData = metaCapi.buildUserData({
+      firstname,
+      familyname,
+      phone: customer.phone,
+      wilaya: customer.wilaya,
+      commune: customer.commune,
+    });
+
+    metaCapi.sendEvent({
+      eventName: 'Purchase',
+      eventTime: Math.floor(Date.now() / 1000),
+      eventId,
+      user: userData,
+      customData: {
+        currency: 'DZD',
+        value: Number(order.total_amount || 0) + deliveryPrice,
+        order_id: order.order_number,
+        contents: order.items.map((item) => ({
+          id: item.product_id,
+          quantity: item.quantity,
+          item_price: item.selling_price,
+        })),
+      },
+      eventSourceUrl,
+      clientIp: req.ip,
+      userAgent: req.get('user-agent') || '',
+    }).catch((err) => {
+      console.error('Meta CAPI error:', err.message);
+    });
+
     success(res, {
       orderId: order.id,
       orderNumber: order.order_number,
