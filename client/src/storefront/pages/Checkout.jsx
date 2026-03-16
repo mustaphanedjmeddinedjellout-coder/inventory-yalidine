@@ -112,7 +112,9 @@ export default function Checkout() {
     fetchDeliveryFees({ wilayaId: form.wilayaId, isStopdesk: form.deliveryMethod === 'stopdesk' })
       .then((data) => {
         if (!active) return;
-        setDeliveryPrice(Number(data?.price) || 0);
+        const basePrice = Number(data?.price) || 0;
+        const adjusted = Math.max(0, basePrice - 100);
+        setDeliveryPrice(adjusted);
       })
       .catch(() => {
         if (!active) return;

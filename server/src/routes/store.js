@@ -104,6 +104,7 @@ router.post('/checkout', storeApiKey, async (req, res) => {
       to_commune_name: customer.commune || null,
       is_stopdesk: customer.deliveryMethod === 'stopdesk',
       yalidine_price: orderTotal,
+      delivery_price: deliveryPrice,
       items: items.map((item) => ({
         product_id: Number(item.product_id),
         variant_id: Number(item.variant_id),
