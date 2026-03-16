@@ -100,7 +100,11 @@ const yalidineService = {
   async getFees({ wilayaId, isStopdesk } = {}) {
     if (!wilayaId) throw new Error('wilayaId is required');
     const stopdeskFlag = isStopdesk ? 1 : 0;
-    return request('GET', `/fees/?to_wilaya_id=${wilayaId}&is_stopdesk=${stopdeskFlag}`);
+    const fromWilayaId = (process.env.YALIDINE_FROM_WILAYA_ID || '').trim() || wilayaId;
+    return request(
+      'GET',
+      `/fees/?from_wilaya_id=${fromWilayaId}&to_wilaya_id=${wilayaId}&is_stopdesk=${stopdeskFlag}`
+    );
   },
 
   /**
