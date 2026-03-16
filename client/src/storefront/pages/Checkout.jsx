@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useCart } from '../cart-context';
 import { formatDzd } from '../utils';
-import { submitCheckout, fetchCommunes, fetchDeliveryFees, fetchWilayas } from '../api';
+import { submitCheckout, fetchCommunes, fetchDeliveryFees, fetchWilayas, fetchCenters } from '../api';
 
 export default function Checkout() {
   const { items, subtotal, clearCart } = useCart();
@@ -11,6 +11,7 @@ export default function Checkout() {
   const [error, setError] = useState('');
   const [wilayas, setWilayas] = useState([]);
   const [communes, setCommunes] = useState([]);
+  const [centers, setCenters] = useState([]);
   const [feeLoading, setFeeLoading] = useState(false);
   const [form, setForm] = useState({
     name: '',
@@ -19,6 +20,8 @@ export default function Checkout() {
     wilayaName: '',
     communeId: '',
     communeName: '',
+    centerId: '',
+    centerName: '',
     address: '',
     deliveryMethod: 'home',
     notes: ''
@@ -50,8 +53,11 @@ export default function Checkout() {
     if (!form.wilayaId) return;
     let active = true;
     setCommunes([]);
+    setCenters([]);
     set('communeId', '');
     set('communeName', '');
+    set('centerId', '');
+    set('centerName', '');
 
     fetchCommunes(form.wilayaId)
       .then((data) => {
@@ -67,6 +73,28 @@ export default function Checkout() {
       active = false;
     };
   }, [form.wilayaId]);
+
+  useEffect(() => {
+    if (!form.wilayaId || form.deliveryMethod !== 'stopdesk') return;
+    let active = true;
+    setCenters([]);
+    set('centerId', '');
+    set('centerName', '');
+
+    fetchCenters({ wilayaId: form.wilayaId, communeId: form.communeId })
+      .then((data) => {
+        if (!active) return;
+        setCenters(data || []);
+      })
+      .catch((err) => {
+        if (!active) return;
+        setError(err.message || 'Failed to load stop desk centers');
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [form.wilayaId, form.communeId, form.deliveryMethod]);
 
   useEffect(() => {
     if (!form.wilayaId) return;
@@ -98,6 +126,11 @@ export default function Checkout() {
       return;
     }
 
+    if (form.deliveryMethod === 'stopdesk' && !form.centerId) {
+      setError('Please select a stop desk.');
+      return;
+    }
+
     setLoading(true);
     setError('');
 
@@ -108,7 +141,9 @@ export default function Checkout() {
           phone: form.phone,
           wilaya: form.wilayaName,
           commune: form.communeName,
-          address: form.address,
+          address: form.deliveryMethod === 'stopdesk'
+            ? `${form.centerName} - Bureau Yalidine`
+            : form.address,
           deliveryMethod: form.deliveryMethod,
           deliveryPrice,
           notes: form.notes
@@ -210,13 +245,41 @@ export default function Checkout() {
                 }`}
                 onClick={() => set('deliveryMethod', 'stopdesk')}
               >
-                Stop Desk
+                Bureau Yalidine
               </button>
             </div>
           </div>
+          {form.deliveryMethod === 'stopdesk' && (
+            <div className="field-block">
+              <label>Bureau Yalidine</label>
+              <select
+                className="input-field"
+                value={form.centerId}
+                onChange={(e) => {
+                  const centerId = e.target.value;
+                  const selected = centers.find((c) => String(c.center_id || c.id) === String(centerId));
+                  set('centerId', centerId);
+                  set('centerName', selected?.name || '');
+                }}
+                disabled={!form.wilayaId}
+              >
+                <option value="">Select bureau Yalidine</option>
+                {centers.map((c) => (
+                  <option key={c.center_id || c.id} value={c.center_id || c.id}>
+                    {c.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
           <div className="field-block">
             <label>Address</label>
-            <input className="input-field" value={form.address} onChange={(e) => set('address', e.target.value)} />
+            <input
+              className="input-field"
+              value={form.address}
+              onChange={(e) => set('address', e.target.value)}
+              disabled={form.deliveryMethod === 'stopdesk'}
+            />
           </div>
           <div className="field-block">
             <label>Notes</label>
