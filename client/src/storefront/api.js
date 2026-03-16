@@ -36,3 +36,11 @@ export function fetchDeliveryFees({ wilayaId, isStopdesk }) {
   const stopdesk = isStopdesk ? 1 : 0;
   return request(`/api/yalidine/fees?wilaya_id=${wilayaId}&is_stopdesk=${stopdesk}`);
 }
+
+export function fetchCenters({ wilayaId, communeId }) {
+  if (!wilayaId) return Promise.resolve([]);
+  const params = new URLSearchParams();
+  params.set('wilaya_id', wilayaId);
+  if (communeId) params.set('commune_id', communeId);
+  return request(`/api/yalidine/centers?${params.toString()}`);
+}
