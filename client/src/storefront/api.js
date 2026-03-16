@@ -17,9 +17,13 @@ export function fetchProductById(id) {
 }
 
 export function submitCheckout(payload) {
+  const storeKey = import.meta.env.VITE_STORE_API_KEY;
   return request('/api/store/checkout', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: {
+      'Content-Type': 'application/json',
+      ...(storeKey ? { 'X-STORE-KEY': storeKey } : {}),
+    },
     body: JSON.stringify(payload),
   });
 }
