@@ -49,7 +49,7 @@ router.get('/centers', async (req, res) => {
 // GET /api/yalidine/fees?wilaya_id=16&is_stopdesk=0 – Delivery fees
 router.get('/fees', async (req, res) => {
   try {
-    const { wilaya_id, is_stopdesk, debug } = req.query;
+    const { wilaya_id, is_stopdesk, debug, commune_id } = req.query;
     if (!wilaya_id) return error(res, 'wilaya_id is required', 400);
     const result = await yalidineService.getFees({
       wilayaId: wilaya_id,
@@ -61,9 +61,18 @@ router.get('/fees', async (req, res) => {
     const payload = result && result.data ? result.data : result;
     const data = Array.isArray(payload) ? payload[0] || {} : payload || {};
     const isStopdesk = String(is_stopdesk) === '1' || String(is_stopdesk).toLowerCase() === 'true';
-    const price = isStopdesk
-      ? data.stopdesk_price ?? data.stopdesk ?? data.stop_desk_price ?? data.price
-      : data.home_price ?? data.home ?? data.domicile_price ?? data.price;
+
+    let price = null;
+    if (commune_id && data.per_commune && data.per_commune[commune_id]) {
+      const communeFees = data.per_commune[commune_id];
+      price = isStopdesk ? communeFees.express_desk : communeFees.express_home;
+    }
+
+    if (price == null) {
+      price = isStopdesk
+        ? data.stopdesk_price ?? data.stopdesk ?? data.stop_desk_price ?? data.price
+        : data.home_price ?? data.home ?? data.domicile_price ?? data.price;
+    }
 
     success(res, { price: typeof price === 'number' ? price : Number(price) || 0 });
   } catch (err) {

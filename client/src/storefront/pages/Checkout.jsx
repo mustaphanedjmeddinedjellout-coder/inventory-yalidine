@@ -109,7 +109,11 @@ export default function Checkout() {
     if (!form.wilayaId) return;
     let active = true;
     setFeeLoading(true);
-    fetchDeliveryFees({ wilayaId: form.wilayaId, isStopdesk: form.deliveryMethod === 'stopdesk' })
+    fetchDeliveryFees({
+      wilayaId: form.wilayaId,
+      communeId: form.communeId,
+      isStopdesk: form.deliveryMethod === 'stopdesk',
+    })
       .then((data) => {
         if (!active) return;
         const basePrice = Number(data?.price) || 0;
