@@ -65,6 +65,7 @@ async function initializeDatabase() {
       total_cost REAL NOT NULL DEFAULT 0,
       total_profit REAL NOT NULL DEFAULT 0,
       items_count INTEGER NOT NULL DEFAULT 0,
+      delivery_price REAL NOT NULL DEFAULT 0,
       notes TEXT,
       firstname TEXT,
       familyname TEXT,
@@ -117,6 +118,7 @@ async function setupDatabase() {
   const cols = colsResult.rows.map(r => r.name);
   const migrations = [
     ['order_status', "TEXT NOT NULL DEFAULT 'pending'"],
+    ['delivery_price', "REAL NOT NULL DEFAULT 0"],
     ['firstname', 'TEXT'], ['familyname', 'TEXT'], ['contact_phone', 'TEXT'],
     ['address', 'TEXT'], ['to_wilaya_name', 'TEXT'], ['to_commune_name', 'TEXT'],
     ['is_stopdesk', 'INTEGER DEFAULT 0'], ['yalidine_tracking', 'TEXT'],
