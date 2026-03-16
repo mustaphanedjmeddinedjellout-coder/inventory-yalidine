@@ -1,11 +1,11 @@
 import { useEffect, useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useCart } from '../cart-context';
-import { formatDzd } from '../utils';
-import { submitCheckout, fetchCommunes, fetchDeliveryFees, fetchWilayas, fetchCenters } from '../api';
+import { formatDzd, resolveImageUrl } from '../utils';
+import { submitCheckout, fetchCommunes, fetchDeliveryFees, fetchWilayas, fetchCenters, fetchProductById } from '../api';
 
 export default function Checkout() {
-  const { items, subtotal, clearCart } = useCart();
+  const { items, subtotal, clearCart, addItem } = useCart();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -29,6 +29,15 @@ export default function Checkout() {
 
   const [deliveryPrice, setDeliveryPrice] = useState(0);
   const total = useMemo(() => subtotal + deliveryPrice, [subtotal, deliveryPrice]);
+  const uniqueProductIds = useMemo(
+    () => Array.from(new Set(items.map((item) => String(item.productId)))),
+    [items]
+  );
+  const singleProductId = uniqueProductIds.length === 1 ? uniqueProductIds[0] : null;
+  const [inlineProduct, setInlineProduct] = useState(null);
+  const [inlineColor, setInlineColor] = useState('');
+  const [inlineSize, setInlineSize] = useState('');
+  const [inlineQty, setInlineQty] = useState(1);
 
   const set = (key, value) => setForm((prev) => ({ ...prev, [key]: value }));
 
@@ -119,6 +128,55 @@ export default function Checkout() {
     };
   }, [form.wilayaId, form.deliveryMethod]);
 
+  useEffect(() => {
+    if (!singleProductId) {
+      setInlineProduct(null);
+      return;
+    }
+    let active = true;
+    fetchProductById(singleProductId)
+      .then((data) => {
+        if (!active) return;
+        setInlineProduct(data || null);
+        const firstAvailable = data?.variants?.find((v) => v.quantity > 0);
+        setInlineColor(firstAvailable?.color || '');
+        setInlineSize(firstAvailable?.size || '');
+        setInlineQty(1);
+      })
+      .catch(() => {
+        if (!active) return;
+        setInlineProduct(null);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [singleProductId]);
+
+  const inlineVariants = useMemo(() => inlineProduct?.variants || [], [inlineProduct]);
+  const inlineColors = useMemo(() => Array.from(new Set(inlineVariants.map((v) => v.color))), [inlineVariants]);
+  const inlineSizes = useMemo(() => Array.from(new Set(inlineVariants.map((v) => v.size))), [inlineVariants]);
+  const selectedInlineVariant = useMemo(
+    () => inlineVariants.find((v) => v.color === inlineColor && v.size === inlineSize),
+    [inlineVariants, inlineColor, inlineSize]
+  );
+  const inlineMax = selectedInlineVariant?.quantity || 0;
+
+  const addInlineVariant = () => {
+    if (!inlineProduct || !selectedInlineVariant || inlineMax <= 0) return;
+    const image = resolveImageUrl(selectedInlineVariant.image || inlineProduct.image);
+    addItem({
+      productId: String(inlineProduct.id),
+      variantId: String(selectedInlineVariant.id),
+      title: inlineProduct.model_name,
+      image,
+      price: inlineProduct.selling_price,
+      size: selectedInlineVariant.size,
+      color: selectedInlineVariant.color,
+      quantity: inlineQty,
+    });
+  };
+
   const submit = async () => {
     if (items.length === 0) return;
     if (!form.name || !form.phone || !form.wilayaId || !form.communeId || (form.deliveryMethod === 'home' && !form.address)) {
@@ -144,6 +202,7 @@ export default function Checkout() {
           address: form.deliveryMethod === 'stopdesk'
             ? `${form.centerName} - Bureau Yalidine`
             : form.address,
+          centerId: form.centerId,
           deliveryMethod: form.deliveryMethod,
           deliveryPrice,
           notes: form.notes
@@ -285,6 +344,73 @@ export default function Checkout() {
             <label>Notes</label>
             <textarea className="input-field" rows={3} value={form.notes} onChange={(e) => set('notes', e.target.value)} />
           </div>
+          {singleProductId && inlineProduct && (
+            <div className="rounded-2xl border border-black/10 bg-white/70 p-5 space-y-4">
+              <div className="flex items-center justify-between">
+                <p className="text-[12px] uppercase tracking-[0.3em] text-black/40">Add another variant</p>
+                <span className="text-[12px] text-black/45">{inlineProduct.model_name}</span>
+              </div>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div>
+                  <label className="text-[11px] uppercase tracking-[0.3em] text-black/40">Color</label>
+                  <select
+                    className="input-field"
+                    value={inlineColor}
+                    onChange={(e) => {
+                      const nextColor = e.target.value;
+                      setInlineColor(nextColor);
+                      const match = inlineVariants.find((v) => v.color === nextColor && v.quantity > 0)
+                        || inlineVariants.find((v) => v.color === nextColor);
+                      if (match?.size) setInlineSize(match.size);
+                    }}
+                  >
+                    {inlineColors.map((color) => (
+                      <option key={color} value={color}>{color || 'Default'}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="text-[11px] uppercase tracking-[0.3em] text-black/40">Size</label>
+                  <select
+                    className="input-field"
+                    value={inlineSize}
+                    onChange={(e) => setInlineSize(e.target.value)}
+                  >
+                    {inlineSizes.map((size) => (
+                      <option key={size} value={size}>{size || 'One Size'}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-[11px] uppercase tracking-[0.3em] text-black/40">Quantity</p>
+                  <p className="text-[11px] text-black/45">Available: {inlineMax}</p>
+                </div>
+                <input
+                  type="number"
+                  min="1"
+                  max={inlineMax || 1}
+                  value={inlineQty}
+                  onChange={(e) => setInlineQty(Number(e.target.value) || 1)}
+                  className="w-24 rounded-lg border border-gray-200 px-3 py-2 text-sm"
+                />
+              </div>
+              <button
+                type="button"
+                className="btn-primary w-full"
+                disabled={!selectedInlineVariant || inlineMax <= 0}
+                onClick={addInlineVariant}
+              >
+                Add variant to cart
+              </button>
+            </div>
+          )}
+          {!singleProductId && (
+            <Link to="/" className="btn-primary inline-flex w-full justify-center">
+              Back to shop
+            </Link>
+          )}
         </div>
 
         <div className="rounded-2xl border border-black/10 bg-white/70 p-6 space-y-4">

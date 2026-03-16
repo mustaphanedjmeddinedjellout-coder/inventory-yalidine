@@ -12,7 +12,7 @@ const orderService = {
    * Get all orders with optional date filtering
    */
   async getAll(filters = {}) {
-    let query = 'SELECT * FROM orders WHERE 1=1';
+    let query = "SELECT * FROM orders WHERE 1=1";
     const args = [];
 
     if (filters.date) {
@@ -50,7 +50,7 @@ const orderService = {
    * Create an order with line items.
    */
   async create(data) {
-    const { notes, firstname, familyname, contact_phone, address, to_wilaya_name, to_commune_name, is_stopdesk, yalidine_price, items } = data;
+    const { notes, firstname, familyname, contact_phone, address, to_wilaya_name, to_commune_name, is_stopdesk, yalidine_price, items, approve } = data;
 
     if (!items || items.length === 0) {
       throw new Error('يجب إضافة عنصر واحد على الأقل للطلب');
@@ -108,9 +108,9 @@ const orderService = {
     const { totalAmount, totalCost, totalProfit, itemsCount } = calculateOrderTotals(processedItems);
 
     const orderResult = await db.execute({
-      sql: `INSERT INTO orders (order_number, total_amount, total_cost, total_profit, items_count, notes,
+      sql: `INSERT INTO orders (order_number, order_status, total_amount, total_cost, total_profit, items_count, notes,
          firstname, familyname, contact_phone, address, to_wilaya_name, to_commune_name, is_stopdesk, yalidine_price)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+         VALUES (?, 'pending', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       args: [
         orderNumber, totalAmount, totalCost, totalProfit, itemsCount, notes || null,
         firstname || null, familyname || null, contact_phone || null, address || null,
@@ -129,32 +129,49 @@ const orderService = {
       });
     }
 
-    const order = await this.getById(newOrderId);
-
-    // Auto-send to Yalidine
-    if (order && firstname && familyname && contact_phone && address && to_wilaya_name && to_commune_name) {
-      if (yalidineService.isConfigured()) {
-        const productList = order.items.map(i => `${i.product_name} (${i.variant_info}) x${i.quantity}`).join(', ') + ' - يسمح بالفتح';
-
-        yalidineService.createParcel(order, productList)
-          .then(async (result) => {
-            if (result && Array.isArray(result) && result.length > 0) {
-              const parcel = result[0];
-              if (parcel.tracking) {
-                await db.execute({
-                  sql: `UPDATE orders SET yalidine_tracking = ?, yalidine_status = ?, yalidine_label = ? WHERE id = ?`,
-                  args: [parcel.tracking, parcel.state || 'submitted', parcel.label || null, newOrderId],
-                });
-              }
-            }
-          })
-          .catch((err) => {
-            console.error('Yalidine parcel creation failed:', err.message);
-          });
-      }
+    if (approve) {
+      return this.approve(newOrderId);
     }
 
-    return order;
+    return this.getById(newOrderId);
+  },
+
+  /**
+   * Approve order and send to Yalidine.
+   */
+  async approve(id) {
+    const order = await this.getById(id);
+    if (!order) throw new Error('الطلب غير موجود');
+
+    if (order.order_status === 'approved' || order.yalidine_tracking) {
+      return order;
+    }
+
+    if (!order.firstname || !order.familyname || !order.contact_phone || !order.address || !order.to_wilaya_name || !order.to_commune_name) {
+      throw new Error('بيانات الشحن ناقصة ولا يمكن إرسال الطلب إلى يالدين');
+    }
+
+    if (!yalidineService.isConfigured()) {
+      throw new Error('Yalidine غير مفعّل. يرجى ضبط مفاتيح API.');
+    }
+
+    const productList = order.items.map(i => `${i.product_name} (${i.variant_info}) x${i.quantity}`).join(', ') + ' - يسمح بالفتح';
+    const result = await yalidineService.createParcel(order, productList);
+
+    if (result && Array.isArray(result) && result.length > 0) {
+      const parcel = result[0];
+      await db.execute({
+        sql: `UPDATE orders SET order_status = 'approved', yalidine_tracking = ?, yalidine_status = ?, yalidine_label = ? WHERE id = ?`,
+        args: [parcel.tracking || null, parcel.state || 'submitted', parcel.label || null, id],
+      });
+    } else {
+      await db.execute({
+        sql: `UPDATE orders SET order_status = 'approved' WHERE id = ?`,
+        args: [id],
+      });
+    }
+
+    return this.getById(id);
   },
 
   /**

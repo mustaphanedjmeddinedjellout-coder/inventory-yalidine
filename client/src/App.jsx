@@ -6,6 +6,7 @@ import Orders from './pages/Orders';
 import Analytics from './pages/Analytics';
 import StorefrontLayout from './storefront/StorefrontLayout';
 import Home from './storefront/pages/Home';
+import Category from './storefront/pages/Category';
 import Product from './storefront/pages/Product';
 import Cart from './storefront/pages/Cart';
 import Checkout from './storefront/pages/Checkout';
@@ -21,6 +22,7 @@ function App() {
         <Routes>
           <Route element={<StorefrontLayout />}>
             <Route path="/" element={<Home />} />
+            <Route path="/shop/:category" element={<Category />} />
             <Route path="/product/:slug" element={<Product />} />
             <Route path="/cart" element={<Cart />} />
             <Route path="/checkout" element={<Checkout />} />
