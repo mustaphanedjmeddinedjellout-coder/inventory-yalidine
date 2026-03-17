@@ -149,7 +149,16 @@ const orderService = {
       return order;
     }
 
-    if (!order.firstname || !order.familyname || !order.contact_phone || !order.address || !order.to_wilaya_name || !order.to_commune_name) {
+    const normalized = {
+      firstname: String(order.firstname || '').trim(),
+      familyname: String(order.familyname || '').trim() || String(order.firstname || '').trim(),
+      contact_phone: String(order.contact_phone || '').trim(),
+      address: String(order.address || '').trim(),
+      to_wilaya_name: String(order.to_wilaya_name || '').trim(),
+      to_commune_name: String(order.to_commune_name || '').trim(),
+    };
+
+    if (!normalized.firstname || !normalized.familyname || !normalized.contact_phone || !normalized.address || !normalized.to_wilaya_name || !normalized.to_commune_name) {
       throw new Error('بيانات الشحن ناقصة ولا يمكن إرسال الطلب إلى يالدين');
     }
 
@@ -157,8 +166,15 @@ const orderService = {
       throw new Error('Yalidine غير مفعّل. يرجى ضبط مفاتيح API.');
     }
 
+    if (normalized.familyname !== (order.familyname || '')) {
+      await db.execute({
+        sql: `UPDATE orders SET familyname = ? WHERE id = ?`,
+        args: [normalized.familyname, id],
+      });
+    }
+
     const productList = order.items.map(i => `${i.product_name} (${i.variant_info}) x${i.quantity}`).join(', ') + ' - يسمح بالفتح';
-    const result = await yalidineService.createParcel(order, productList);
+    const result = await yalidineService.createParcel({ ...order, ...normalized }, productList);
 
     if (result && Array.isArray(result) && result.length > 0) {
       const parcel = result[0];

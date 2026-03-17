@@ -85,7 +85,7 @@ router.post('/checkout', storeApiKey, async (req, res) => {
     const fullName = (customer.name || '').trim();
     const nameParts = fullName.split(' ').filter(Boolean);
     const firstname = nameParts[0] || fullName || null;
-    const familyname = nameParts.length > 1 ? nameParts.slice(1).join(' ') : null;
+    const familyname = nameParts.length > 1 ? nameParts.slice(1).join(' ') : firstname;
 
     const deliveryPrice = customer.deliveryPrice != null ? Number(customer.deliveryPrice) : 0;
     const itemsTotal = items.reduce(
