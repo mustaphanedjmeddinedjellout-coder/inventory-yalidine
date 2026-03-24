@@ -56,8 +56,12 @@ export default function Product() {
     [availableVariants, selectedColor, selectedSize]
   );
 
+  const selectedColorImage = useMemo(() => {
+    return availableVariants.find((v) => v.color === selectedColor && v.image)?.image || '';
+  }, [availableVariants, selectedColor]);
+
   const maxQuantity = selectedVariant?.quantity || 0;
-  const displayImage = selectedVariant?.image || product?.image;
+  const displayImage = selectedVariant?.image || selectedColorImage || product?.image;
 
   const onAdd = () => {
     if (!product || !selectedVariant || maxQuantity <= 0) return;
@@ -65,7 +69,7 @@ export default function Product() {
       productId: String(product.id),
       variantId: String(selectedVariant.id),
       title: product.model_name,
-      image: resolveImageUrl(selectedVariant.image || product.image),
+      image: resolveImageUrl(selectedVariant.image || selectedColorImage || product.image),
       price: product.selling_price,
       size: selectedVariant.size,
       color: selectedVariant.color,
