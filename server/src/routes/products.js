@@ -22,22 +22,38 @@ function validateStockSql(statement) {
     return 'SQL comments are not allowed';
   }
 
-  if (/(drop|delete|insert|alter|create|pragma|attach|detach|vacuum|truncate)\b/i.test(normalized)) {
-    return 'Only stock update statements are allowed';
+  const isUpdate = /^update\s+/i.test(normalized);
+  const isInsert = /^insert\s+into\s+/i.test(normalized);
+
+  if (!isUpdate && !isInsert) {
+    return 'Only UPDATE or INSERT statements are allowed';
   }
 
-  const match = normalized.match(/^update\s+product_variants\s+set\s+(.+)\s+where\s+(.+)$/i);
-  if (!match) {
-    return 'Only UPDATE product_variants ... WHERE ... is allowed';
+  if (/(drop|delete|alter|create|pragma|attach|detach|vacuum|truncate)\b/i.test(normalized)) {
+    return 'Dangerous operations are not allowed';
   }
 
-  const setClause = match[1].trim();
-  if (/\,/.test(setClause)) {
-    return 'Only quantity can be updated';
+  if (isInsert) {
+    if (!/^insert\s+into\s+(products|product_variants)\s+/i.test(normalized)) {
+      return 'Only INSERT into products or product_variants is allowed';
+    }
+    return null;
   }
 
-  if (!/^quantity\s*=\s*.+$/i.test(setClause)) {
-    return 'Only quantity assignment is allowed in SET clause';
+  if (isUpdate) {
+    const match = normalized.match(/^update\s+product_variants\s+set\s+(.+)\s+where\s+(.+)$/i);
+    if (!match) {
+      return 'Only UPDATE product_variants ... WHERE ... is allowed';
+    }
+
+    const setClause = match[1].trim();
+    if (/\,/.test(setClause)) {
+      return 'Only quantity can be updated';
+    }
+
+    if (!/^quantity\s*=\s*.+$/i.test(setClause)) {
+      return 'Only quantity assignment is allowed in SET clause';
+    }
   }
 
   return null;
