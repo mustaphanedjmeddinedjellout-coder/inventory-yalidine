@@ -3,7 +3,7 @@ import { formatDzd, resolveImageUrl, slugForProduct } from '../utils';
 
 export default function ProductCard({ product }) {
   const variantImage = product.variants?.find((v) => v.image)?.image;
-  const image = resolveImageUrl(variantImage || product.image);
+  const image = resolveImageUrl(product.image || variantImage);
   const totalStock = product.variants?.reduce((sum, v) => sum + (v.quantity || 0), 0) || 0;
 
   return (
