@@ -6,7 +6,56 @@
 const express = require('express');
 const router = express.Router();
 const productService = require('../services/productService');
+const { db } = require('../db/connection');
 const { success, error } = require('../utils/response');
+
+function validateStockSql(statement) {
+  const normalized = statement.trim().replace(/\s+/g, ' ');
+
+  if (!normalized) return 'SQL is required';
+
+  if (normalized.includes(';')) {
+    return 'Only one SQL statement is allowed';
+  }
+
+  if (/--|\/\*/.test(normalized)) {
+    return 'SQL comments are not allowed';
+  }
+
+  if (/(drop|delete|insert|alter|create|pragma|attach|detach|vacuum|truncate)\b/i.test(normalized)) {
+    return 'Only stock update statements are allowed';
+  }
+
+  const match = normalized.match(/^update\s+product_variants\s+set\s+(.+)\s+where\s+(.+)$/i);
+  if (!match) {
+    return 'Only UPDATE product_variants ... WHERE ... is allowed';
+  }
+
+  const setClause = match[1].trim();
+  if (/\,/.test(setClause)) {
+    return 'Only quantity can be updated';
+  }
+
+  if (!/^quantity\s*=\s*.+$/i.test(setClause)) {
+    return 'Only quantity assignment is allowed in SET clause';
+  }
+
+  return null;
+}
+
+function ensureAdminPassword(req, res, next) {
+  const expected = process.env.ADMIN_PASSWORD || process.env.VITE_ADMIN_PASSWORD;
+  if (!expected) {
+    return error(res, 'Admin password is not configured on the server', 503);
+  }
+
+  const provided = req.header('X-ADMIN-PASSWORD');
+  if (!provided || provided !== expected) {
+    return error(res, 'Unauthorized', 401);
+  }
+
+  return next();
+}
 
 // GET /api/products - List all products
 router.get('/', async (req, res) => {
@@ -40,6 +89,23 @@ router.get('/low-stock', async (req, res) => {
     success(res, items);
   } catch (err) {
     error(res, err.message);
+  }
+});
+
+// POST /api/products/stock-sql - Execute controlled SQL to update variant quantity
+router.post('/stock-sql', ensureAdminPassword, async (req, res) => {
+  try {
+    const sqlInput = String(req.body?.sql || '').trim();
+    const statement = sqlInput.replace(/;+\s*$/, '');
+    const validationError = validateStockSql(statement);
+    if (validationError) {
+      return error(res, validationError, 400);
+    }
+
+    const result = await db.execute({ sql: statement });
+    success(res, { rowsAffected: result.rowsAffected || 0 });
+  } catch (err) {
+    error(res, err.message, 400);
   }
 });
 

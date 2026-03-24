@@ -5,6 +5,12 @@ export const productApi = {
   getById: (id) => api.get(`/products/${id}`),
   getForOrder: () => api.get('/products/for-order'),
   getLowStock: (threshold) => api.get('/products/low-stock', { params: { threshold } }),
+  runStockSql: (sql) =>
+    api.post(
+      '/products/stock-sql',
+      { sql },
+      { headers: { 'X-ADMIN-PASSWORD': import.meta.env.VITE_ADMIN_PASSWORD || '' } }
+    ),
   create: (data) => api.post('/products', data),
   update: (id, data) => api.put(`/products/${id}`, data),
   delete: (id) => api.delete(`/products/${id}`),
