@@ -1,6 +1,6 @@
 /**
  * Order Service
- * Handles order creation with stock reduction and price snapshots (async for Turso).
+ * Handles order creation with stock deduction on admin approval and price snapshots (async for Turso).
  */
 
 const { db } = require('../db/connection');
@@ -98,11 +98,6 @@ const orderService = {
         lineTotal, lineCost, lineProfit,
       });
 
-      // Reduce stock
-      await db.execute({
-        sql: `UPDATE product_variants SET quantity = quantity - ?, updated_at = datetime('now') WHERE id = ?`,
-        args: [item.quantity, variant.id],
-      });
     }
 
     const { totalAmount, totalCost, totalProfit, itemsCount } = calculateOrderTotals(processedItems);
@@ -173,6 +168,31 @@ const orderService = {
       });
     }
 
+    // Deduct stock only at approval time
+    for (const item of order.items) {
+      const variantResult = await db.execute({
+        sql: 'SELECT quantity FROM product_variants WHERE id = ?',
+        args: [item.variant_id],
+      });
+
+      if (variantResult.rows.length === 0) {
+        throw new Error(`المتغير غير موجود: ${item.variant_id}`);
+      }
+
+      const available = Number(variantResult.rows[0].quantity || 0);
+      const requested = Number(item.quantity || 0);
+      if (available < requested) {
+        throw new Error(`الكمية غير كافية لتأكيد الطلب (المتوفر: ${available})`);
+      }
+    }
+
+    for (const item of order.items) {
+      await db.execute({
+        sql: `UPDATE product_variants SET quantity = quantity - ?, updated_at = datetime('now') WHERE id = ?`,
+        args: [item.quantity, item.variant_id],
+      });
+    }
+
     const productList = order.items.map(i => `${i.product_name} (${i.variant_info}) x${i.quantity}`).join(', ') + ' - يسمح بالفتح';
     const result = await yalidineService.createParcel({ ...order, ...normalized }, productList);
 
@@ -196,13 +216,22 @@ const orderService = {
    * Delete an order (restores stock)
    */
   async delete(id) {
-    const itemsResult = await db.execute({ sql: 'SELECT * FROM order_items WHERE order_id = ?', args: [id] });
+    const orderResult = await db.execute({ sql: 'SELECT order_status FROM orders WHERE id = ?', args: [id] });
+    if (orderResult.rows.length === 0) {
+      throw new Error('الطلب غير موجود');
+    }
 
-    for (const item of itemsResult.rows) {
-      await db.execute({
-        sql: `UPDATE product_variants SET quantity = quantity + ?, updated_at = datetime('now') WHERE id = ?`,
-        args: [item.quantity, item.variant_id],
-      });
+    const isApproved = String(orderResult.rows[0].order_status || '') === 'approved';
+
+    if (isApproved) {
+      const itemsResult = await db.execute({ sql: 'SELECT * FROM order_items WHERE order_id = ?', args: [id] });
+
+      for (const item of itemsResult.rows) {
+        await db.execute({
+          sql: `UPDATE product_variants SET quantity = quantity + ?, updated_at = datetime('now') WHERE id = ?`,
+          args: [item.quantity, item.variant_id],
+        });
+      }
     }
 
     await db.execute({ sql: 'DELETE FROM order_items WHERE order_id = ?', args: [id] });
