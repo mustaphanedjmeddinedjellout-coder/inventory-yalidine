@@ -18,6 +18,7 @@ const emptyProduct = {
   category: 'T-Shirt',
   selling_price: '',
   cost_price: '',
+  image: '',
   variants: [{ color: '', size: '', quantity: 0, image: '' }],
 };
 
@@ -85,6 +86,7 @@ export default function Products() {
       category: product.category,
       selling_price: product.selling_price,
       cost_price: product.cost_price,
+      image: product.image || '',
       variants: product.variants.length > 0 ? product.variants.map((v) => ({ ...v })) : [{ color: '', size: '', quantity: 0, image: '' }],
     });
     setModalOpen(true);
@@ -189,7 +191,7 @@ export default function Products() {
           }
           return variant;
         });
-        return { ...f, variants };
+        return { ...f, variants, image: f.image || imagePath };
       });
       toast.success('تم رفع الصورة');
     } catch (err) {
@@ -209,7 +211,19 @@ export default function Products() {
         }
         return variant;
       }),
+      image: (() => {
+        const removedImages = f.variants
+          .filter((variant) => colorKey && normalizeColor(variant.color) === colorKey)
+          .map((variant) => variant.image)
+          .filter(Boolean);
+        if (removedImages.includes(f.image)) return '';
+        return f.image;
+      })(),
     }));
+  }
+
+  function setCoverImage(imagePath) {
+    setForm((f) => ({ ...f, image: imagePath || '' }));
   }
 
   const colorImageRows = useMemo(() => {
@@ -461,6 +475,26 @@ export default function Products() {
             {colorImageRows.length > 0 && (
               <div className="mb-4 rounded-lg border border-gray-200 bg-gray-50 p-3">
                 <p className="text-xs font-medium text-gray-600 mb-2">صور الألوان (صورة واحدة لكل لون)</p>
+                {form.image && (
+                  <div className="mb-3 flex items-center gap-3 rounded-md border border-gray-200 bg-white p-2">
+                    <img
+                      src={resolveImageUrl(form.image)}
+                      alt="cover"
+                      className="h-12 w-12 rounded object-cover border border-gray-200"
+                    />
+                    <div className="flex-1">
+                      <p className="text-xs font-medium text-gray-700">صورة الواجهة المختارة</p>
+                      <p className="text-[11px] text-gray-500">تظهر في الصفحة الرئيسية للمتجر</p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setCoverImage('')}
+                      className="text-xs text-red-500 hover:text-red-700"
+                    >
+                      مسح
+                    </button>
+                  </div>
+                )}
                 <div className="space-y-2">
                   {colorImageRows.map((row) => (
                     <div key={row.key} className="grid gap-2 sm:grid-cols-[1fr_1.6fr_auto_auto] items-center">
@@ -479,6 +513,13 @@ export default function Products() {
                             alt={row.label}
                             className="h-10 w-10 rounded object-cover border border-gray-200"
                           />
+                          <button
+                            type="button"
+                            onClick={() => setCoverImage(row.image)}
+                            className={`text-xs ${form.image === row.image ? 'text-green-600' : 'text-primary hover:text-primary-dark'}`}
+                          >
+                            {form.image === row.image ? 'صورة الواجهة' : 'اجعلها صورة الواجهة'}
+                          </button>
                           <button
                             type="button"
                             onClick={() => clearColorImage(row.key)}
