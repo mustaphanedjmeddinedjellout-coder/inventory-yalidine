@@ -85,6 +85,30 @@ export default function Product() {
     )?.image || '';
   }, [availableVariants, selectedColor]);
 
+  useEffect(() => {
+    if (!availableVariants.length && !product?.image) return;
+
+    const uniqueImagePaths = new Set();
+
+    for (const variant of availableVariants) {
+      if (variant?.image) {
+        uniqueImagePaths.add(variant.image);
+      }
+    }
+
+    if (product?.image) {
+      uniqueImagePaths.add(product.image);
+    }
+
+    const preloaders = [];
+    for (const imagePath of uniqueImagePaths) {
+      const img = new Image();
+      img.decoding = 'async';
+      img.src = resolveImageUrl(imagePath);
+      preloaders.push(img);
+    }
+  }, [availableVariants, product?.image]);
+
   const maxQuantity = selectedVariant?.quantity || 0;
   const displayImage = selectedVariant?.image || selectedColorImage || product?.image;
 
