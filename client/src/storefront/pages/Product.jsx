@@ -21,6 +21,8 @@ export default function Product() {
   const [selectedSize, setSelectedSize] = useState('');
   const [quantity, setQuantity] = useState(1);
   const touchStartRef = useRef({ x: 0, y: 0 });
+  const [dragOffsetX, setDragOffsetX] = useState(0);
+  const [isDragging, setIsDragging] = useState(false);
 
   useEffect(() => {
     const id = extractIdFromSlug(slug || '');
@@ -131,14 +133,37 @@ export default function Product() {
     const touch = event.touches?.[0];
     if (!touch) return;
     touchStartRef.current = { x: touch.clientX, y: touch.clientY };
+    setIsDragging(true);
+    setDragOffsetX(0);
   }
 
-  function handleImageTouchEnd(event) {
-    const touch = event.changedTouches?.[0];
+  function handleImageTouchMove(event) {
+    const touch = event.touches?.[0];
     if (!touch) return;
 
     const deltaX = touch.clientX - touchStartRef.current.x;
     const deltaY = touch.clientY - touchStartRef.current.y;
+
+    if (Math.abs(deltaX) > Math.abs(deltaY)) {
+      event.preventDefault();
+    }
+
+    const limitedOffset = Math.max(-90, Math.min(90, deltaX));
+    setDragOffsetX(limitedOffset);
+  }
+
+  function handleImageTouchEnd(event) {
+    const touch = event.changedTouches?.[0];
+    if (!touch) {
+      setIsDragging(false);
+      setDragOffsetX(0);
+      return;
+    }
+
+    const deltaX = touch.clientX - touchStartRef.current.x;
+    const deltaY = touch.clientY - touchStartRef.current.y;
+    setIsDragging(false);
+    setDragOffsetX(0);
 
     if (Math.abs(deltaX) < 40 || Math.abs(deltaX) < Math.abs(deltaY)) {
       return;
@@ -210,17 +235,23 @@ export default function Product() {
     <div className="container-bleed py-12">
       <div className="grid gap-10 lg:grid-cols-2">
         <div className="relative aspect-3/4 w-full overflow-hidden bg-[#efeae2]">
-          <SmartImage
-            key={displayImage}
-            src={resolveImageUrl(displayImage)}
-            alt={product.model_name}
-            loading="eager"
-            fetchPriority="high"
-            decoding="async"
-            className="h-full w-full object-cover"
-            onTouchStart={handleImageTouchStart}
-            onTouchEnd={handleImageTouchEnd}
-          />
+          <div
+            className={`h-full w-full ${isDragging ? '' : 'transition-transform duration-300 ease-out'}`}
+            style={{ transform: `translateX(${dragOffsetX}px)` }}
+          >
+            <SmartImage
+              key={displayImage}
+              src={resolveImageUrl(displayImage)}
+              alt={product.model_name}
+              loading="eager"
+              fetchPriority="high"
+              decoding="async"
+              className="h-full w-full object-cover"
+              onTouchStart={handleImageTouchStart}
+              onTouchMove={handleImageTouchMove}
+              onTouchEnd={handleImageTouchEnd}
+            />
+          </div>
         </div>
 
         <div className="space-y-6">
