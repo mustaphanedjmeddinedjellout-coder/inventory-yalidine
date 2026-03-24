@@ -29,7 +29,7 @@ export default function Home() {
     };
   }, []);
 
-  const tshirts = useMemo(() => products.filter((p) => p.category === 'T-Shirt').slice(0, 4), [products]);
+  const tshirts = useMemo(() => products.filter((p) => p.category === 'T-Shirt').slice(0, 8), [products]);
   const pants = useMemo(() => products.filter((p) => p.category === 'Pants').slice(0, 4), [products]);
   const shoes = useMemo(() => products.filter((p) => p.category === 'Shoes').slice(0, 4), [products]);
 
