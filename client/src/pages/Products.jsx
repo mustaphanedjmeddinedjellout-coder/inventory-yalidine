@@ -38,6 +38,28 @@ export default function Products() {
     loadProducts();
   }, [search, filterCategory]);
 
+  function normalizeColor(color) {
+    return String(color || '').trim().toLowerCase();
+  }
+
+  function propagateColorImages(variants) {
+    const imageByColor = new Map();
+
+    for (const v of variants) {
+      const key = normalizeColor(v.color);
+      if (!key) continue;
+      if (v.image && !imageByColor.has(key)) {
+        imageByColor.set(key, v.image);
+      }
+    }
+
+    return variants.map((v) => {
+      const key = normalizeColor(v.color);
+      if (!key || v.image) return v;
+      return { ...v, image: imageByColor.get(key) || '' };
+    });
+  }
+
   async function loadProducts() {
     try {
       setLoading(true);
@@ -78,7 +100,7 @@ export default function Products() {
         ...form,
         selling_price: parseFloat(form.selling_price),
         cost_price: parseFloat(form.cost_price),
-        variants: form.variants.map((v) => ({
+        variants: propagateColorImages(form.variants).map((v) => ({
           ...v,
           quantity: parseInt(v.quantity) || 0,
         })),
@@ -159,7 +181,22 @@ export default function Products() {
       const res = await productApi.uploadImage(formData);
       const imagePath = res.data?.path;
       if (!imagePath) throw new Error('Upload failed');
-      updateVariant(index, 'image', imagePath);
+      setForm((f) => {
+        const variants = f.variants.map((variant, variantIndex) => {
+          if (variantIndex === index) {
+            return { ...variant, image: imagePath };
+          }
+
+          const targetColor = normalizeColor(f.variants[index]?.color);
+          const currentColor = normalizeColor(variant.color);
+          if (targetColor && currentColor === targetColor) {
+            return { ...variant, image: variant.image || imagePath };
+          }
+
+          return variant;
+        });
+        return { ...f, variants };
+      });
       toast.success('تم رفع الصورة');
     } catch (err) {
       toast.error(err.message || 'تعذر رفع الصورة');
