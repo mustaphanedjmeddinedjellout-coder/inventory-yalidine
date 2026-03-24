@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom';
 import { formatDzd, resolveImageUrl, slugForProduct } from '../utils';
+import SmartImage from './SmartImage';
 
 export default function ProductCard({ product }) {
   const variantImage = product.variants?.find((v) => v.image)?.image;
@@ -10,15 +11,12 @@ export default function ProductCard({ product }) {
     <Link to={`/product/${slugForProduct(product)}`} className="group block">
       <article>
         <div className="relative aspect-3/4 w-full overflow-hidden bg-[#efeae2]">
-          <img
+          <SmartImage
             src={image}
             alt={product.model_name}
             loading="lazy"
             decoding="async"
             className="h-full w-full object-cover transition-transform duration-700 ease-out group-hover:scale-[1.06]"
-            onError={(e) => {
-              e.target.src = '/placeholder-product.svg';
-            }}
           />
           <div className="absolute inset-x-0 bottom-0 h-24 bg-linear-to-t from-black/20 to-transparent opacity-0 transition-opacity duration-500 group-hover:opacity-100" />
           {totalStock === 0 && (

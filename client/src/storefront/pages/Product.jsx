@@ -4,6 +4,7 @@ import { fetchProductById } from '../api';
 import { formatDzd, extractIdFromSlug, resolveImageUrl } from '../utils';
 import QuantityPicker from '../components/QuantityPicker';
 import { useCart } from '../cart-context';
+import SmartImage from '../components/SmartImage';
 
 function normalizeText(value) {
   return String(value || '').trim().toLowerCase();
@@ -144,7 +145,7 @@ export default function Product() {
     <div className="container-bleed py-12">
       <div className="grid gap-10 lg:grid-cols-2">
         <div className="relative aspect-3/4 w-full overflow-hidden bg-[#efeae2]">
-          <img
+          <SmartImage
             key={displayImage}
             src={resolveImageUrl(displayImage)}
             alt={product.model_name}
@@ -152,9 +153,6 @@ export default function Product() {
             fetchPriority="high"
             decoding="async"
             className="h-full w-full object-cover"
-            onError={(e) => {
-              e.target.src = '/placeholder-product.svg';
-            }}
           />
         </div>
 
