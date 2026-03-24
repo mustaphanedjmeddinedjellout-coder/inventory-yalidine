@@ -10,6 +10,7 @@ export default function SmartImage({
   loading = 'lazy',
   decoding = 'async',
   fetchPriority,
+  ...rest
 }) {
   const sourceList = Array.isArray(sources)
     ? sources.filter(Boolean)
@@ -67,6 +68,7 @@ export default function SmartImage({
       decoding={decoding}
       fetchPriority={fetchPriority}
       onError={handleError}
+      {...rest}
     />
   );
 }

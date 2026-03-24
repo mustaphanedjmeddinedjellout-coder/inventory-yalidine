@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { fetchProductById } from '../api';
 import { formatDzd, extractIdFromSlug, resolveImageUrl } from '../utils';
@@ -20,6 +20,7 @@ export default function Product() {
   const [selectedColor, setSelectedColor] = useState('');
   const [selectedSize, setSelectedSize] = useState('');
   const [quantity, setQuantity] = useState(1);
+  const touchStartRef = useRef({ x: 0, y: 0 });
 
   useEffect(() => {
     const id = extractIdFromSlug(slug || '');
@@ -85,6 +86,70 @@ export default function Product() {
       (v) => normalizeText(v.color) === normalizeText(selectedColor) && v.image
     )?.image || '';
   }, [availableVariants, selectedColor]);
+
+  const swipableColors = useMemo(() => {
+    return colors.filter((color) =>
+      availableVariants.some((v) => normalizeText(v.color) === color.value && v.quantity > 0)
+    );
+  }, [colors, availableVariants]);
+
+  function applyColorSelection(color) {
+    if (!color) return;
+
+    setSelectedColor(color.label);
+    const hasSizeForColor = availableVariants.some(
+      (v) =>
+        normalizeText(v.color) === color.value
+        && normalizeText(v.size) === normalizeText(selectedSize)
+        && v.quantity > 0
+    );
+
+    if (!hasSizeForColor) {
+      const firstMatch = availableVariants.find(
+        (v) => normalizeText(v.color) === color.value && v.quantity > 0
+      ) || availableVariants.find((v) => normalizeText(v.color) === color.value);
+
+      if (firstMatch?.size) {
+        setSelectedSize(String(firstMatch.size).trim());
+      }
+    }
+  }
+
+  function goToRelativeColor(step) {
+    if (swipableColors.length < 2) return;
+
+    const currentIndex = swipableColors.findIndex(
+      (color) => color.value === normalizeText(selectedColor)
+    );
+    if (currentIndex === -1) return;
+
+    const nextIndex = (currentIndex + step + swipableColors.length) % swipableColors.length;
+    applyColorSelection(swipableColors[nextIndex]);
+  }
+
+  function handleImageTouchStart(event) {
+    const touch = event.touches?.[0];
+    if (!touch) return;
+    touchStartRef.current = { x: touch.clientX, y: touch.clientY };
+  }
+
+  function handleImageTouchEnd(event) {
+    const touch = event.changedTouches?.[0];
+    if (!touch) return;
+
+    const deltaX = touch.clientX - touchStartRef.current.x;
+    const deltaY = touch.clientY - touchStartRef.current.y;
+
+    if (Math.abs(deltaX) < 40 || Math.abs(deltaX) < Math.abs(deltaY)) {
+      return;
+    }
+
+    if (deltaX < 0) {
+      goToRelativeColor(1);
+    } else {
+      goToRelativeColor(-1);
+    }
+  }
 
   useEffect(() => {
     if (!availableVariants.length && !product?.image) return;
@@ -153,6 +218,8 @@ export default function Product() {
             fetchPriority="high"
             decoding="async"
             className="h-full w-full object-cover"
+            onTouchStart={handleImageTouchStart}
+            onTouchEnd={handleImageTouchEnd}
           />
         </div>
 
@@ -176,24 +243,7 @@ export default function Product() {
                       key={color.value}
                       type="button"
                       disabled={!isAvailable}
-                      onClick={() => {
-                        setSelectedColor(color.label);
-                        const hasSizeForColor = availableVariants.some(
-                          (v) =>
-                            normalizeText(v.color) === color.value
-                            && normalizeText(v.size) === normalizeText(selectedSize)
-                            && v.quantity > 0
-                        );
-                        if (!hasSizeForColor) {
-                          const firstMatch = availableVariants.find(
-                            (v) => normalizeText(v.color) === color.value && v.quantity > 0
-                          )
-                            || availableVariants.find((v) => normalizeText(v.color) === color.value);
-                          if (firstMatch?.size) {
-                            setSelectedSize(String(firstMatch.size).trim());
-                          }
-                        }
-                      }}
+                      onClick={() => applyColorSelection(color)}
                       className={`rounded-full border px-4 py-2 text-[12px] uppercase tracking-wider transition-all ${
                         normalizeText(selectedColor) === color.value
                           ? 'border-black bg-black text-white'
