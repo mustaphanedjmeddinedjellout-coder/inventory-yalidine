@@ -29,9 +29,10 @@ export function resolveImageUrl(image) {
   if (!image.startsWith('http') && !image.startsWith('/')) {
     url = `/${image}`;
   }
-  // Add cache buster for local images to prevent stale browser cache
+  // Add cache buster for local images - timestamp evaluated at call time
   if (url.startsWith('/uploads/')) {
-    url += `?t=${Date.now()}`;
+    const cacheKey = Math.random().toString(36).substr(2, 9);
+    url += `?v=${cacheKey}`;
   }
   return url;
 }
