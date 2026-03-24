@@ -19,7 +19,7 @@
 }
 
 body {
-  font-family: 'Space Grotesk', sans-serif;
+  font-family: 'Space Grotesk', 'Cairo', 'Noto Sans Arabic', sans-serif;
   background-color: var(--cream);
   color: var(--ink);
   direction: ltr;
@@ -45,8 +45,8 @@ body {
 .section-heading {
   font-size: 1.75rem;
   font-weight: 600;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
+  letter-spacing: normal;
+  text-transform: none;
 }
 
 .btn-primary {
@@ -58,8 +58,8 @@ body {
   background: #111;
   color: #fff;
   font-size: 0.75rem;
-  text-transform: uppercase;
-  letter-spacing: 0.3em;
+  text-transform: none;
+  letter-spacing: normal;
   transition: transform 0.2s ease, box-shadow 0.2s ease;
 }
 
