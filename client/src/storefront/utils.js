@@ -24,7 +24,7 @@ export function extractIdFromSlug(slug) {
 }
 
 export function resolveImageUrl(image) {
-  if (!image) return 'https://images.unsplash.com/photo-1483985988355-763728e1935b?w=1200';
+  if (!image) return '/placeholder-product.svg';
   if (image.startsWith('http') || image.startsWith('/')) return image;
   return `/${image}`;
 }

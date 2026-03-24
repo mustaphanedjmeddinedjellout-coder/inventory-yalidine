@@ -5,6 +5,40 @@
 
 const { db } = require('../db/connection');
 
+function normalizeText(value) {
+  return String(value || '').trim();
+}
+
+function normalizeColorKey(value) {
+  return normalizeText(value).toLowerCase();
+}
+
+function normalizeVariants(variants = []) {
+  const imageByColor = new Map();
+
+  for (const variant of variants) {
+    const key = normalizeColorKey(variant.color);
+    const image = normalizeText(variant.image);
+    if (key && image && !imageByColor.has(key)) {
+      imageByColor.set(key, image);
+    }
+  }
+
+  return variants.map((variant) => {
+    const color = normalizeText(variant.color);
+    const size = normalizeText(variant.size);
+    const key = normalizeColorKey(color);
+    const image = normalizeText(variant.image) || imageByColor.get(key) || null;
+
+    return {
+      ...variant,
+      color,
+      size,
+      image,
+    };
+  });
+}
+
 const productService = {
   /**
    * Get all products with their variants
@@ -37,7 +71,7 @@ const productService = {
         sql: 'SELECT * FROM product_variants WHERE product_id = ? ORDER BY color, size',
         args: [p.id],
       });
-      products.push({ ...p, variants: varResult.rows });
+      products.push({ ...p, variants: normalizeVariants(varResult.rows) });
     }
     return products;
   },
@@ -54,7 +88,7 @@ const productService = {
       sql: 'SELECT * FROM product_variants WHERE product_id = ? ORDER BY color, size',
       args: [id],
     });
-    product.variants = varResult.rows;
+    product.variants = normalizeVariants(varResult.rows);
     return product;
   },
 
@@ -63,6 +97,7 @@ const productService = {
    */
   async create(data) {
     const { model_name, category, selling_price, cost_price, image, variants } = data;
+    const normalizedVariants = normalizeVariants(variants || []);
 
     const productResult = await db.execute({
       sql: 'INSERT INTO products (model_name, category, selling_price, cost_price, image) VALUES (?, ?, ?, ?, ?)',
@@ -71,8 +106,8 @@ const productService = {
 
     const productId = Number(productResult.lastInsertRowid);
 
-    if (variants && variants.length > 0) {
-      for (const v of variants) {
+    if (normalizedVariants.length > 0) {
+      for (const v of normalizedVariants) {
         await db.execute({
           sql: 'INSERT INTO product_variants (product_id, color, size, quantity, image) VALUES (?, ?, ?, ?, ?)',
           args: [productId, v.color || '', v.size || '', v.quantity || 0, v.image || null],
@@ -88,6 +123,7 @@ const productService = {
    */
   async update(id, data) {
     const { model_name, category, selling_price, cost_price, image, variants } = data;
+    const normalizedVariants = normalizeVariants(variants || []);
 
     await db.execute({
       sql: `UPDATE products SET model_name = ?, category = ?, selling_price = ?, cost_price = ?, image = COALESCE(?, image), updated_at = datetime('now') WHERE id = ?`,
@@ -95,7 +131,7 @@ const productService = {
     });
 
     if (variants) {
-      const existingIds = variants.filter((v) => v.id).map((v) => v.id);
+      const existingIds = normalizedVariants.filter((v) => v.id).map((v) => v.id);
       if (existingIds.length > 0) {
         const placeholders = existingIds.map(() => '?').join(',');
         await db.execute({
@@ -109,7 +145,7 @@ const productService = {
         });
       }
 
-      for (const v of variants) {
+      for (const v of normalizedVariants) {
         if (v.id) {
           await db.execute({
             sql: `UPDATE product_variants SET color = ?, size = ?, quantity = ?, image = ?, updated_at = datetime('now') WHERE id = ? AND product_id = ?`,
