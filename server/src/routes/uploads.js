@@ -2,6 +2,7 @@ const express = require('express');
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
+const { v2: cloudinary } = require('cloudinary');
 const { success, error } = require('../utils/response');
 
 const router = express.Router();
@@ -9,6 +10,20 @@ const router = express.Router();
 const uploadDir = path.resolve(process.env.UPLOAD_DIR || './uploads');
 if (!fs.existsSync(uploadDir)) {
   fs.mkdirSync(uploadDir, { recursive: true });
+}
+
+const hasCloudinary = Boolean(
+  process.env.CLOUDINARY_CLOUD_NAME
+  && process.env.CLOUDINARY_API_KEY
+  && process.env.CLOUDINARY_API_SECRET
+);
+
+if (hasCloudinary) {
+  cloudinary.config({
+    cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+    api_key: process.env.CLOUDINARY_API_KEY,
+    api_secret: process.env.CLOUDINARY_API_SECRET,
+  });
 }
 
 const storage = multer.diskStorage({
@@ -21,8 +36,10 @@ const storage = multer.diskStorage({
   },
 });
 
+const memoryStorage = multer.memoryStorage();
+
 const upload = multer({
-  storage,
+  storage: hasCloudinary ? memoryStorage : storage,
   limits: { fileSize: 5 * 1024 * 1024 },
   fileFilter: (req, file, cb) => {
     if (!file.mimetype || !file.mimetype.startsWith('image/')) {
@@ -32,15 +49,48 @@ const upload = multer({
   },
 });
 
-router.post('/', upload.single('file'), (req, res) => {
+function uploadBufferToCloudinary(fileBuffer, mimetype) {
+  return new Promise((resolve, reject) => {
+    const folder = process.env.CLOUDINARY_FOLDER || 'inventory-yalidine/products';
+    const stream = cloudinary.uploader.upload_stream(
+      {
+        folder,
+        resource_type: 'image',
+        format: mimetype === 'image/png' ? 'png' : undefined,
+      },
+      (err, result) => {
+        if (err) return reject(err);
+        return resolve(result);
+      }
+    );
+
+    stream.end(fileBuffer);
+  });
+}
+
+router.post('/', upload.single('file'), async (req, res) => {
   if (!req.file) {
     return error(res, 'No file uploaded.', 400);
   }
 
-  return success(res, {
-    path: `/uploads/${req.file.filename}`,
-    filename: req.file.filename,
-  });
+  try {
+    if (hasCloudinary) {
+      const result = await uploadBufferToCloudinary(req.file.buffer, req.file.mimetype);
+      return success(res, {
+        path: result.secure_url,
+        filename: result.public_id,
+        storage: 'cloudinary',
+      });
+    }
+
+    return success(res, {
+      path: `/uploads/${req.file.filename}`,
+      filename: req.file.filename,
+      storage: 'local',
+    });
+  } catch (err) {
+    return error(res, `Upload failed: ${err.message}`, 500);
+  }
 });
 
 module.exports = router;

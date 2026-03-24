@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom';
 import { useCart } from '../cart-context';
 import { formatDzd } from '../utils';
 import QuantityPicker from '../components/QuantityPicker';
+import SmartImage from '../components/SmartImage';
 
 export default function Cart() {
   const { items, subtotal, updateQty, removeItem } = useCart();
@@ -28,15 +29,12 @@ export default function Cart() {
         {items.map((item) => (
           <div key={item.variantId} className="rounded-2xl border border-black/10 bg-white/70 p-5">
             <div className="flex gap-4">
-              <img
+              <SmartImage
                 src={item.image}
                 alt={item.title}
                 loading="lazy"
                 decoding="async"
                 className="h-24 w-20 object-cover rounded-xl bg-[#efeae2]"
-                onError={(e) => {
-                  e.target.src = '/placeholder-product.svg';
-                }}
               />
               <div className="flex-1">
                 <div className="flex items-start justify-between">
