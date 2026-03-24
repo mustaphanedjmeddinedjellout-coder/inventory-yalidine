@@ -54,14 +54,14 @@ router.post('/:id/approve', async (req, res) => {
   }
 });
 
-// DELETE /api/orders/:id - Delete order (restores stock)
+// DELETE /api/orders/:id - Delete order (restores stock only if approved)
 router.delete('/:id', async (req, res) => {
   try {
     const existing = await orderService.getById(parseInt(req.params.id));
     if (!existing) return error(res, 'الطلب غير موجود', 404);
 
     await orderService.delete(parseInt(req.params.id));
-    success(res, { message: 'تم حذف الطلب بنجاح واستعادة المخزون' });
+    success(res, { message: 'تم حذف الطلب بنجاح' });
   } catch (err) {
     error(res, err.message);
   }
