@@ -31,6 +31,8 @@ export default function Products() {
   const [form, setForm] = useState({ ...emptyProduct });
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState({});
+  const [stockSql, setStockSql] = useState('');
+  const [runningStockSql, setRunningStockSql] = useState(false);
 
   useEffect(() => {
     loadProducts();
@@ -106,6 +108,29 @@ export default function Products() {
       loadProducts();
     } catch (err) {
       toast.error(err.message);
+    }
+  }
+
+  async function runStockSql() {
+    const sql = stockSql.trim();
+    if (!sql) {
+      return toast.error('أدخل سطر SQL أولاً');
+    }
+
+    if (!window.confirm('سيتم تنفيذ هذا السطر مباشرة على المخزون. هل أنت متأكد؟')) {
+      return;
+    }
+
+    try {
+      setRunningStockSql(true);
+      const res = await productApi.runStockSql(sql);
+      const rows = res?.data?.rowsAffected || 0;
+      toast.success(`تم التحديث بنجاح (${rows} صف)`);
+      loadProducts();
+    } catch (err) {
+      toast.error(err.message);
+    } finally {
+      setRunningStockSql(false);
     }
   }
 
@@ -185,6 +210,37 @@ export default function Products() {
             <option key={c} value={c}>{CATEGORY_LABELS[c]}</option>
           ))}
         </select>
+      </div>
+
+      <div className="mb-6 rounded-xl border border-amber-200 bg-amber-50 p-4">
+        <h2 className="text-sm font-semibold text-amber-900">تعديل المخزون عبر SQL</h2>
+        <p className="mt-1 text-xs text-amber-800/90">
+          مسموح فقط: UPDATE product_variants SET quantity = ... WHERE ...
+        </p>
+        <textarea
+          value={stockSql}
+          onChange={(e) => setStockSql(e.target.value)}
+          rows={3}
+          placeholder="UPDATE product_variants SET quantity = 12 WHERE id = 4;"
+          className="mt-3 w-full rounded-lg border border-amber-200 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-300"
+        />
+        <div className="mt-3 flex items-center gap-3">
+          <button
+            type="button"
+            onClick={runStockSql}
+            disabled={runningStockSql}
+            className="rounded-lg bg-amber-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-amber-700 disabled:opacity-50"
+          >
+            {runningStockSql ? 'جاري التنفيذ...' : 'تنفيذ SQL'}
+          </button>
+          <button
+            type="button"
+            onClick={() => setStockSql('')}
+            className="rounded-lg border border-amber-300 px-4 py-2 text-sm text-amber-900 transition hover:bg-amber-100"
+          >
+            مسح
+          </button>
+        </div>
       </div>
 
       {/* Products Table */}
