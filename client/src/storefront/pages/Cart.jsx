@@ -71,7 +71,7 @@ export default function Cart() {
         أضف منتجا آخر
       </Link>
       <Link to="/checkout" className="btn-primary mt-6 inline-flex w-full justify-center">
-        متابعة إلى الدفع
+        تأكيد الطلب
       </Link>
     </div>
   );

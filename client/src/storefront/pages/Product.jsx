@@ -173,7 +173,9 @@ export default function Product() {
             <div className="flex items-center justify-between rounded-2xl border border-black/10 bg-white/70 px-5 py-4">
               <div>
                 <p className="text-[11px] uppercase tracking-[0.3em] text-black/40">الكمية</p>
-                <p className="text-[11px] text-black/50">المتوفر: {maxQuantity}</p>
+                {maxQuantity > 0 && maxQuantity < 3 && (
+                  <p className="text-[11px] text-black/50">كمية قليلة</p>
+                )}
               </div>
               <QuantityPicker value={quantity} onChange={setQuantity} max={maxQuantity || 1} />
             </div>
