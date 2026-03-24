@@ -92,6 +92,7 @@ export default function Product() {
       <div className="grid gap-10 lg:grid-cols-2">
         <div className="relative aspect-3/4 w-full overflow-hidden bg-[#efeae2]">
           <img
+            key={displayImage}
             src={resolveImageUrl(displayImage)}
             alt={product.model_name}
             className="h-full w-full object-cover"
