@@ -215,7 +215,7 @@ export default function Products() {
       <div className="mb-6 rounded-xl border border-amber-200 bg-amber-50 p-4">
         <h2 className="text-sm font-semibold text-amber-900">تعديل المخزون عبر SQL</h2>
         <p className="mt-1 text-xs text-amber-800/90">
-          مسموح فقط: UPDATE product_variants SET quantity = ... WHERE ...
+          مسموح: UPDATE product_variants SET quantity = ... WHERE ... أو INSERT INTO products/product_variants ...
         </p>
         <textarea
           value={stockSql}
