@@ -9,16 +9,18 @@ export default function ProductCard({ product }) {
   return (
     <Link to={`/product/${slugForProduct(product)}`} className="group block">
       <article>
-        <div className="relative aspect-[3/4] w-full overflow-hidden bg-[#efeae2]">
+        <div className="relative aspect-3/4 w-full overflow-hidden bg-[#efeae2]">
           <img
             src={image}
             alt={product.model_name}
+            loading="lazy"
+            decoding="async"
             className="h-full w-full object-cover transition-transform duration-700 ease-out group-hover:scale-[1.06]"
             onError={(e) => {
               e.target.src = 'https://images.unsplash.com/photo-1483985988355-763728e1935b?w=1200';
             }}
           />
-          <div className="absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-black/20 to-transparent opacity-0 transition-opacity duration-500 group-hover:opacity-100" />
+          <div className="absolute inset-x-0 bottom-0 h-24 bg-linear-to-t from-black/20 to-transparent opacity-0 transition-opacity duration-500 group-hover:opacity-100" />
           {totalStock === 0 && (
             <div className="absolute inset-0 flex items-center justify-center bg-white/70 backdrop-blur-[2px]">
               <span className="rounded-full bg-black/80 px-3 py-1 text-[10px] font-semibold uppercase tracking-wider text-white">
