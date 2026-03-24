@@ -5,6 +5,10 @@ import { formatDzd, extractIdFromSlug, resolveImageUrl } from '../utils';
 import QuantityPicker from '../components/QuantityPicker';
 import { useCart } from '../cart-context';
 
+function normalizeText(value) {
+  return String(value || '').trim().toLowerCase();
+}
+
 export default function Product() {
   const { slug } = useParams();
   const navigate = useNavigate();
@@ -30,8 +34,8 @@ export default function Product() {
         if (!active) return;
         setProduct(data);
         const firstAvailable = data?.variants?.find((v) => v.quantity > 0);
-        setSelectedColor(firstAvailable?.color || '');
-        setSelectedSize(firstAvailable?.size || '');
+        setSelectedColor(String(firstAvailable?.color || '').trim());
+        setSelectedSize(String(firstAvailable?.size || '').trim());
       })
       .catch((err) => {
         if (!active) return;
@@ -48,16 +52,37 @@ export default function Product() {
   }, [slug]);
 
   const availableVariants = useMemo(() => product?.variants || [], [product]);
-  const sizes = useMemo(() => Array.from(new Set(availableVariants.map((v) => v.size))), [availableVariants]);
-  const colors = useMemo(() => Array.from(new Set(availableVariants.map((v) => v.color))), [availableVariants]);
+  const sizes = useMemo(() => {
+    return Array.from(
+      new Set(availableVariants.map((v) => String(v.size || '').trim()))
+    ).filter(Boolean);
+  }, [availableVariants]);
+
+  const colors = useMemo(() => {
+    const byNormalized = new Map();
+    for (const v of availableVariants) {
+      const label = String(v.color || '').trim();
+      const key = normalizeText(label);
+      if (!key || byNormalized.has(key)) continue;
+      byNormalized.set(key, label);
+    }
+    return Array.from(byNormalized.entries()).map(([value, label]) => ({ value, label }));
+  }, [availableVariants]);
 
   const selectedVariant = useMemo(
-    () => availableVariants.find((v) => v.size === selectedSize && v.color === selectedColor),
+    () =>
+      availableVariants.find(
+        (v) =>
+          normalizeText(v.size) === normalizeText(selectedSize)
+          && normalizeText(v.color) === normalizeText(selectedColor)
+      ),
     [availableVariants, selectedColor, selectedSize]
   );
 
   const selectedColorImage = useMemo(() => {
-    return availableVariants.find((v) => v.color === selectedColor && v.image)?.image || '';
+    return availableVariants.find(
+      (v) => normalizeText(v.color) === normalizeText(selectedColor) && v.image
+    )?.image || '';
   }, [availableVariants, selectedColor]);
 
   const maxQuantity = selectedVariant?.quantity || 0;
@@ -121,34 +146,41 @@ export default function Product() {
               <p className="text-[11px] uppercase tracking-[0.3em] text-black/40">اللون</p>
               <div className="mt-3 flex flex-wrap gap-2">
                 {colors.map((color) => {
-                  const isAvailable = availableVariants.some((v) => v.color === color && v.quantity > 0);
+                  const isAvailable = availableVariants.some(
+                    (v) => normalizeText(v.color) === color.value && v.quantity > 0
+                  );
                   return (
                     <button
-                      key={color}
+                      key={color.value}
                       type="button"
                       disabled={!isAvailable}
                       onClick={() => {
-                        setSelectedColor(color);
+                        setSelectedColor(color.label);
                         const hasSizeForColor = availableVariants.some(
-                          (v) => v.color === color && v.size === selectedSize && v.quantity > 0
+                          (v) =>
+                            normalizeText(v.color) === color.value
+                            && normalizeText(v.size) === normalizeText(selectedSize)
+                            && v.quantity > 0
                         );
                         if (!hasSizeForColor) {
-                          const firstMatch = availableVariants.find((v) => v.color === color && v.quantity > 0)
-                            || availableVariants.find((v) => v.color === color);
+                          const firstMatch = availableVariants.find(
+                            (v) => normalizeText(v.color) === color.value && v.quantity > 0
+                          )
+                            || availableVariants.find((v) => normalizeText(v.color) === color.value);
                           if (firstMatch?.size) {
-                            setSelectedSize(firstMatch.size);
+                            setSelectedSize(String(firstMatch.size).trim());
                           }
                         }
                       }}
                       className={`rounded-full border px-4 py-2 text-[12px] uppercase tracking-wider transition-all ${
-                        selectedColor === color
+                        normalizeText(selectedColor) === color.value
                           ? 'border-black bg-black text-white'
                           : isAvailable
                           ? 'border-black/20 text-black/70 hover:border-black'
                           : 'border-black/10 text-black/30'
                       }`}
                     >
-                      {color || 'افتراضي'}
+                      {color.label || 'افتراضي'}
                     </button>
                   );
                 })}
@@ -159,7 +191,12 @@ export default function Product() {
               <p className="text-[11px] uppercase tracking-[0.3em] text-black/40">المقاس</p>
               <div className="mt-3 flex flex-wrap gap-2">
                 {sizes.map((size) => {
-                  const isAvailable = availableVariants.some((v) => v.size === size && v.quantity > 0);
+                  const isAvailable = availableVariants.some(
+                    (v) =>
+                      normalizeText(v.size) === normalizeText(size)
+                      && normalizeText(v.color) === normalizeText(selectedColor)
+                      && v.quantity > 0
+                  );
                   return (
                     <button
                       key={size}
