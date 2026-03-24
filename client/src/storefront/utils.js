@@ -25,14 +25,6 @@ export function extractIdFromSlug(slug) {
 
 export function resolveImageUrl(image) {
   if (!image) return 'https://images.unsplash.com/photo-1483985988355-763728e1935b?w=1200';
-  let url = image;
-  if (!image.startsWith('http') && !image.startsWith('/')) {
-    url = `/${image}`;
-  }
-  // Add cache buster for local images - timestamp evaluated at call time
-  if (url.startsWith('/uploads/')) {
-    const cacheKey = Math.random().toString(36).substr(2, 9);
-    url += `?v=${cacheKey}`;
-  }
-  return url;
+  if (image.startsWith('http') || image.startsWith('/')) return image;
+  return `/${image}`;
 }

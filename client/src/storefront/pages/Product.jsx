@@ -99,6 +99,9 @@ export default function Product() {
             key={displayImage}
             src={resolveImageUrl(displayImage)}
             alt={product.model_name}
+            loading="eager"
+            fetchPriority="high"
+            decoding="async"
             className="h-full w-full object-cover"
             onError={(e) => {
               e.target.src = 'https://images.unsplash.com/photo-1483985988355-763728e1935b?w=1200';
