@@ -2,7 +2,7 @@
  * Products Page
  * Full CRUD for products with variant management.
  */
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { productApi } from '../api';
 import Modal from '../components/Modal';
 import LoadingSpinner from '../components/LoadingSpinner';
@@ -172,27 +172,21 @@ export default function Products() {
     });
   }
 
-  async function uploadVariantImage(index, file) {
+  async function uploadColorImage(colorKey, file) {
     if (!file) return;
     try {
-      setUploading((prev) => ({ ...prev, [index]: true }));
+      setUploading((prev) => ({ ...prev, [colorKey]: true }));
       const formData = new FormData();
       formData.append('file', file);
       const res = await productApi.uploadImage(formData);
       const imagePath = res.data?.path;
       if (!imagePath) throw new Error('Upload failed');
       setForm((f) => {
-        const variants = f.variants.map((variant, variantIndex) => {
-          if (variantIndex === index) {
+        const variants = f.variants.map((variant) => {
+          const currentColor = normalizeColor(variant.color);
+          if (colorKey && currentColor === colorKey) {
             return { ...variant, image: imagePath };
           }
-
-          const targetColor = normalizeColor(f.variants[index]?.color);
-          const currentColor = normalizeColor(variant.color);
-          if (targetColor && currentColor === targetColor) {
-            return { ...variant, image: variant.image || imagePath };
-          }
-
           return variant;
         });
         return { ...f, variants };
@@ -201,9 +195,39 @@ export default function Products() {
     } catch (err) {
       toast.error(err.message || 'تعذر رفع الصورة');
     } finally {
-      setUploading((prev) => ({ ...prev, [index]: false }));
+      setUploading((prev) => ({ ...prev, [colorKey]: false }));
     }
   }
+
+  function clearColorImage(colorKey) {
+    setForm((f) => ({
+      ...f,
+      variants: f.variants.map((variant) => {
+        const currentColor = normalizeColor(variant.color);
+        if (colorKey && currentColor === colorKey) {
+          return { ...variant, image: '' };
+        }
+        return variant;
+      }),
+    }));
+  }
+
+  const colorImageRows = useMemo(() => {
+    const seen = new Set();
+    const rows = [];
+
+    for (const variant of form.variants) {
+      const label = String(variant.color || '').trim();
+      const key = normalizeColor(label);
+      if (!key || seen.has(key)) continue;
+      seen.add(key);
+
+      const image = form.variants.find((v) => normalizeColor(v.color) === key && v.image)?.image || '';
+      rows.push({ key, label, image });
+    }
+
+    return rows;
+  }, [form.variants]);
 
   const formatCurrency = (val) =>
     new Intl.NumberFormat('en-US', { style: 'decimal', minimumFractionDigits: 2 }).format(val || 0);
@@ -433,9 +457,48 @@ export default function Products() {
                 + إضافة متغير
               </button>
             </div>
+
+            {colorImageRows.length > 0 && (
+              <div className="mb-4 rounded-lg border border-gray-200 bg-gray-50 p-3">
+                <p className="text-xs font-medium text-gray-600 mb-2">صور الألوان (صورة واحدة لكل لون)</p>
+                <div className="space-y-2">
+                  {colorImageRows.map((row) => (
+                    <div key={row.key} className="grid gap-2 sm:grid-cols-[1fr_1.6fr_auto_auto] items-center">
+                      <span className="text-sm text-gray-700">{row.label}</span>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={(e) => uploadColorImage(row.key, e.target.files?.[0])}
+                        className="w-full text-xs"
+                      />
+                      {uploading[row.key] && <span className="text-[11px] text-gray-400">...رفع</span>}
+                      {row.image ? (
+                        <div className="flex items-center gap-2">
+                          <img
+                            src={resolveImageUrl(row.image)}
+                            alt={row.label}
+                            className="h-10 w-10 rounded object-cover border border-gray-200"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => clearColorImage(row.key)}
+                            className="text-xs text-red-500 hover:text-red-700"
+                          >
+                            حذف الصورة
+                          </button>
+                        </div>
+                      ) : (
+                        <span className="text-[11px] text-gray-400">بدون صورة</span>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
             <div className="space-y-2">
               {form.variants.map((v, i) => (
-                <div key={i} className="grid gap-2 sm:grid-cols-[1.2fr_0.7fr_0.6fr_1.6fr_auto] items-center">
+                <div key={i} className="grid gap-2 sm:grid-cols-[1.2fr_0.7fr_0.6fr_auto] items-center">
                   <input
                     type="text"
                     placeholder="اللون"
@@ -458,22 +521,6 @@ export default function Products() {
                     onChange={(e) => updateVariant(i, 'quantity', e.target.value)}
                     className="w-20 px-3 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
                   />
-                  <div className="flex items-center gap-2">
-                    <input
-                      type="file"
-                      accept="image/*"
-                      onChange={(e) => uploadVariantImage(i, e.target.files?.[0])}
-                      className="w-full text-xs"
-                    />
-                    {uploading[i] && <span className="text-[11px] text-gray-400">...رفع</span>}
-                  </div>
-                  {v.image && (
-                    <img
-                      src={resolveImageUrl(v.image)}
-                      alt="preview"
-                      className="h-10 w-10 rounded object-cover border border-gray-200"
-                    />
-                  )}
                   {form.variants.length > 1 && (
                     <button
                       type="button"
