@@ -32,6 +32,9 @@ export default function Cart() {
                 src={item.image}
                 alt={item.title}
                 className="h-24 w-20 object-cover rounded-xl bg-[#efeae2]"
+                onError={(e) => {
+                  e.target.src = 'https://images.unsplash.com/photo-1483985988355-763728e1935b?w=1200';
+                }}
               />
               <div className="flex-1">
                 <div className="flex items-start justify-between">

@@ -14,6 +14,9 @@ export default function ProductCard({ product }) {
             src={image}
             alt={product.model_name}
             className="h-full w-full object-cover transition-transform duration-700 ease-out group-hover:scale-[1.06]"
+            onError={(e) => {
+              e.target.src = 'https://images.unsplash.com/photo-1483985988355-763728e1935b?w=1200';
+            }}
           />
           <div className="absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-black/20 to-transparent opacity-0 transition-opacity duration-500 group-hover:opacity-100" />
           {totalStock === 0 && (
