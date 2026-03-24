@@ -54,7 +54,10 @@ app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
 
 // Static file serving for uploaded images
-app.use('/uploads', express.static(uploadDir));
+app.use('/uploads', express.static(uploadDir, {
+  maxAge: '1h', // Cache for 1 hour to allow browser cache, but not indefinitely
+  etag: true,   // Use ETags so browser revalidates if file changes
+}));
 
 // API Routes
 app.use('/api/products', require('./routes/products'));
