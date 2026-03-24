@@ -4,18 +4,25 @@ const PLACEHOLDER_IMAGE = '/placeholder-product.svg';
 
 export default function SmartImage({
   src,
+  sources,
   alt,
   className,
   loading = 'lazy',
   decoding = 'async',
   fetchPriority,
 }) {
-  const [currentSrc, setCurrentSrc] = useState(src || PLACEHOLDER_IMAGE);
+  const sourceList = Array.isArray(sources)
+    ? sources.filter(Boolean)
+    : [src].filter(Boolean);
+
+  const [sourceIndex, setSourceIndex] = useState(0);
+  const [currentSrc, setCurrentSrc] = useState(sourceList[0] || PLACEHOLDER_IMAGE);
   const [hasRetried, setHasRetried] = useState(false);
   const retryTimerRef = useRef(null);
 
   useEffect(() => {
-    setCurrentSrc(src || PLACEHOLDER_IMAGE);
+    setSourceIndex(0);
+    setCurrentSrc(sourceList[0] || PLACEHOLDER_IMAGE);
     setHasRetried(false);
 
     return () => {
@@ -23,10 +30,10 @@ export default function SmartImage({
         clearTimeout(retryTimerRef.current);
       }
     };
-  }, [src]);
+  }, [src, sources]);
 
   const handleError = () => {
-    if (!src) {
+    if (!currentSrc) {
       setCurrentSrc(PLACEHOLDER_IMAGE);
       return;
     }
@@ -34,9 +41,17 @@ export default function SmartImage({
     if (!hasRetried) {
       setHasRetried(true);
       retryTimerRef.current = setTimeout(() => {
-        const join = src.includes('?') ? '&' : '?';
-        setCurrentSrc(`${src}${join}retry=1`);
+        const join = currentSrc.includes('?') ? '&' : '?';
+        setCurrentSrc(`${currentSrc}${join}retry=1`);
       }, 250);
+      return;
+    }
+
+    const nextIndex = sourceIndex + 1;
+    if (nextIndex < sourceList.length) {
+      setSourceIndex(nextIndex);
+      setCurrentSrc(sourceList[nextIndex]);
+      setHasRetried(false);
       return;
     }
 

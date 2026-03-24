@@ -4,7 +4,9 @@ import SmartImage from './SmartImage';
 
 export default function ProductCard({ product }) {
   const variantImage = product.variants?.find((v) => v.image)?.image;
-  const image = resolveImageUrl(product.image || variantImage);
+  const imageCandidates = [product.image, variantImage]
+    .filter(Boolean)
+    .map((img) => resolveImageUrl(img));
   const totalStock = product.variants?.reduce((sum, v) => sum + (v.quantity || 0), 0) || 0;
 
   return (
@@ -12,7 +14,7 @@ export default function ProductCard({ product }) {
       <article>
         <div className="relative aspect-3/4 w-full overflow-hidden bg-[#efeae2]">
           <SmartImage
-            src={image}
+            sources={imageCandidates}
             alt={product.model_name}
             loading="lazy"
             decoding="async"
