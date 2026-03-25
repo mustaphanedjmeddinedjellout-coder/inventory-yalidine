@@ -11,7 +11,7 @@ services:
     environment_slug: node-js
     instance_count: 1
     instance_size_slug: apps-s-1vcpu-0.5gb
-    build_command: cd client && npm install && npm run build && cd ../server && npm install
+    build_command: cd server && npm install && cd ../client && npm install --include=dev --legacy-peer-deps && npm run build
     run_command: cd server && npm start
     routes:
       - path: /
