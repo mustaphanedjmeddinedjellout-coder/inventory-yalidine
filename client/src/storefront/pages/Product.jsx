@@ -12,6 +12,8 @@ function normalizeText(value) {
   return String(value || '').trim().toLowerCase();
 }
 
+const SIZE_PRIORITY = ['S', 'M', 'L', 'XL', 'XXL'];
+
 export default function Product() {
   const { slug } = useParams();
   const navigate = useNavigate();
@@ -78,9 +80,25 @@ export default function Product() {
 
   const availableVariants = useMemo(() => product?.variants || [], [product]);
   const sizes = useMemo(() => {
-    return Array.from(
+    const uniqueSizes = Array.from(
       new Set(availableVariants.map((v) => String(v.size || '').trim()))
     ).filter(Boolean);
+
+    return uniqueSizes.sort((a, b) => {
+      const left = String(a || '').trim().toUpperCase();
+      const right = String(b || '').trim().toUpperCase();
+      const leftIndex = SIZE_PRIORITY.indexOf(left);
+      const rightIndex = SIZE_PRIORITY.indexOf(right);
+
+      // Keep clothing sizes in the exact requested order, then sort remaining values naturally.
+      if (leftIndex !== -1 || rightIndex !== -1) {
+        if (leftIndex === -1) return 1;
+        if (rightIndex === -1) return -1;
+        return leftIndex - rightIndex;
+      }
+
+      return left.localeCompare(right, undefined, { numeric: true, sensitivity: 'base' });
+    });
   }, [availableVariants]);
 
   const colors = useMemo(() => {
@@ -312,7 +330,7 @@ export default function Product() {
   return (
     <div className="container-bleed py-12">
       <div className="grid gap-10 lg:grid-cols-2">
-        <div className="relative aspect-3/4 w-full overflow-hidden bg-[#efeae2]">
+        <div className="relative mx-auto aspect-3/4 w-full max-w-115 overflow-hidden bg-[#efeae2]">
           <div
             className={`h-full w-full ${isDragging ? '' : 'transition-transform duration-300 ease-out'}`}
             style={{ transform: `translateX(${dragOffsetX}px)` }}
