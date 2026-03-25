@@ -1,10 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { fetchProductById } from '../api';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { fetchProductById, fetchProducts } from '../api';
 import { formatDzd, extractIdFromSlug, resolveImageUrl } from '../utils';
 import QuantityPicker from '../components/QuantityPicker';
 import { useCart } from '../cart-context';
 import SmartImage from '../components/SmartImage';
+import ProductCard from '../components/ProductCard';
 
 function normalizeText(value) {
   return String(value || '').trim().toLowerCase();
@@ -17,6 +19,7 @@ export default function Product() {
   const [product, setProduct] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [catalog, setCatalog] = useState([]);
   const [selectedColor, setSelectedColor] = useState('');
   const [selectedSize, setSelectedSize] = useState('');
   const [quantity, setQuantity] = useState(1);
@@ -54,6 +57,24 @@ export default function Product() {
       active = false;
     };
   }, [slug]);
+
+  useEffect(() => {
+    let active = true;
+
+    fetchProducts()
+      .then((data) => {
+        if (!active) return;
+        setCatalog(data || []);
+      })
+      .catch(() => {
+        if (!active) return;
+        setCatalog([]);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, []);
 
   const availableVariants = useMemo(() => product?.variants || [], [product]);
   const sizes = useMemo(() => {
@@ -202,6 +223,52 @@ export default function Product() {
 
   const maxQuantity = selectedVariant?.quantity || 0;
   const displayImage = selectedVariant?.image || selectedColorImage || product?.image;
+  const suggestedProducts = useMemo(() => {
+    if (!catalog.length) return [];
+
+    const currentId = String(product?.id || '');
+    const pool = catalog.filter((item) => String(item?.id || '') !== currentId);
+    const pickedIds = new Set();
+
+    const groups = [
+      {
+        key: 'tshirt',
+        match: (item) => {
+          const category = normalizeText(item?.category);
+          const name = normalizeText(item?.model_name);
+          return category.includes('t-shirt') || category.includes('tshirt') || name.includes('t-shirt') || name.includes('tshirt');
+        },
+      },
+      {
+        key: 'pants',
+        match: (item) => {
+          const category = normalizeText(item?.category);
+          const name = normalizeText(item?.model_name);
+          return category.includes('pants') || category.includes('pantalon') || name.includes('pants') || name.includes('pantalon');
+        },
+      },
+      {
+        key: 'shoes',
+        match: (item) => {
+          const category = normalizeText(item?.category);
+          const name = normalizeText(item?.model_name);
+          return category.includes('shoes') || category.includes('shoe') || category.includes('chaussure') || name.includes('shoes') || name.includes('shoe') || name.includes('chaussure');
+        },
+      },
+    ];
+
+    const picks = [];
+    for (const group of groups) {
+      const withStock = pool.find((item) => !pickedIds.has(item.id) && group.match(item) && Number(item.total_stock || 0) > 0);
+      const fallback = pool.find((item) => !pickedIds.has(item.id) && group.match(item));
+      const selected = withStock || fallback;
+      if (!selected) continue;
+      pickedIds.add(selected.id);
+      picks.push(selected);
+    }
+
+    return picks;
+  }, [catalog, product?.id]);
 
   const onAdd = () => {
     if (!product || !selectedVariant || maxQuantity <= 0) return;
@@ -252,6 +319,27 @@ export default function Product() {
               onTouchEnd={handleImageTouchEnd}
             />
           </div>
+
+          {swipableColors.length > 1 && (
+            <>
+              <button
+                type="button"
+                aria-label="Previous color"
+                onClick={() => goToRelativeColor(-1)}
+                className="absolute left-3 top-1/2 z-10 -translate-y-1/2 rounded-full border border-black/15 bg-white/75 p-2 text-black shadow-sm backdrop-blur transition hover:bg-white"
+              >
+                <ChevronLeft size={18} />
+              </button>
+              <button
+                type="button"
+                aria-label="Next color"
+                onClick={() => goToRelativeColor(1)}
+                className="absolute right-3 top-1/2 z-10 -translate-y-1/2 rounded-full border border-black/15 bg-white/75 p-2 text-black shadow-sm backdrop-blur transition hover:bg-white"
+              >
+                <ChevronRight size={18} />
+              </button>
+            </>
+          )}
         </div>
 
         <div className="space-y-6">
@@ -346,6 +434,22 @@ export default function Product() {
           </p>
         </div>
       </div>
+
+      {suggestedProducts.length > 0 && (
+        <section className="mt-16 border-t border-black/10 pt-10">
+          <div className="mb-6 flex items-center justify-between">
+            <h2 className="section-heading">Suggested for you</h2>
+            <Link to="/" className="text-[11px] uppercase tracking-[0.3em] text-black/40">
+              More products
+            </Link>
+          </div>
+          <div className="grid grid-cols-2 gap-x-4 gap-y-8 sm:grid-cols-3">
+            {suggestedProducts.map((item) => (
+              <ProductCard key={item.id} product={item} />
+            ))}
+          </div>
+        </section>
+      )}
     </div>
   );
 }
