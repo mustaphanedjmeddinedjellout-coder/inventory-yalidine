@@ -116,6 +116,11 @@ export default function Product() {
     );
   }, [colors, availableVariants]);
 
+  const currentSwipeIndex = useMemo(() => {
+    if (!swipableColors.length) return -1;
+    return swipableColors.findIndex((color) => color.value === normalizeText(selectedColor));
+  }, [swipableColors, selectedColor]);
+
   function applyColorSelection(color) {
     if (!color) return;
 
@@ -258,10 +263,16 @@ export default function Product() {
     ];
 
     const picks = [];
+    function pickRandom(list) {
+      if (!list.length) return null;
+      const index = Math.floor(Math.random() * list.length);
+      return list[index];
+    }
+
     for (const group of groups) {
-      const withStock = pool.find((item) => !pickedIds.has(item.id) && group.match(item) && Number(item.total_stock || 0) > 0);
-      const fallback = pool.find((item) => !pickedIds.has(item.id) && group.match(item));
-      const selected = withStock || fallback;
+      const matching = pool.filter((item) => !pickedIds.has(item.id) && group.match(item));
+      const inStock = matching.filter((item) => Number(item.total_stock || 0) > 0);
+      const selected = pickRandom(inStock) || pickRandom(matching);
       if (!selected) continue;
       pickedIds.add(selected.id);
       picks.push(selected);
@@ -321,24 +332,36 @@ export default function Product() {
           </div>
 
           {swipableColors.length > 1 && (
-            <>
-              <button
-                type="button"
-                aria-label="Previous color"
-                onClick={() => goToRelativeColor(-1)}
-                className="absolute left-3 top-1/2 z-10 -translate-y-1/2 rounded-full border border-black/15 bg-white/75 p-2 text-black shadow-sm backdrop-blur transition hover:bg-white"
-              >
-                <ChevronLeft size={18} />
-              </button>
-              <button
-                type="button"
-                aria-label="Next color"
-                onClick={() => goToRelativeColor(1)}
-                className="absolute right-3 top-1/2 z-10 -translate-y-1/2 rounded-full border border-black/15 bg-white/75 p-2 text-black shadow-sm backdrop-blur transition hover:bg-white"
-              >
-                <ChevronRight size={18} />
-              </button>
-            </>
+            <div className="pointer-events-none absolute inset-x-0 bottom-4 z-10 flex items-center justify-center px-4">
+              <div className="pointer-events-auto flex items-center gap-3 rounded-full border border-white/40 bg-black/35 px-2 py-2 text-white shadow-[0_10px_30px_rgba(0,0,0,0.25)] backdrop-blur-md">
+                <button
+                  type="button"
+                  aria-label="Previous color"
+                  onClick={() => goToRelativeColor(-1)}
+                  className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-white/35 bg-white/15 transition hover:bg-white/30"
+                >
+                  <ChevronLeft size={16} />
+                </button>
+
+                <div className="flex items-center gap-1.5">
+                  {swipableColors.map((color, idx) => (
+                    <span
+                      key={color.value}
+                      className={`block rounded-full transition-all ${idx === currentSwipeIndex ? 'h-2.5 w-6 bg-white' : 'h-2 w-2 bg-white/45'}`}
+                    />
+                  ))}
+                </div>
+
+                <button
+                  type="button"
+                  aria-label="Next color"
+                  onClick={() => goToRelativeColor(1)}
+                  className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-white/35 bg-white/15 transition hover:bg-white/30"
+                >
+                  <ChevronRight size={16} />
+                </button>
+              </div>
+            </div>
           )}
         </div>
 

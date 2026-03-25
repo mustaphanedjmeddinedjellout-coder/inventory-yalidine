@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, useParams } from 'react-router-dom';
 import Layout from './components/Layout';
 import Dashboard from './pages/Dashboard';
 import Products from './pages/Products';
@@ -15,6 +15,11 @@ import { CartProvider } from './storefront/cart-context';
 import AdminGuard from './admin/AdminGuard';
 import AdminLogin from './admin/AdminLogin';
 
+function ProductRoute() {
+  const { slug } = useParams();
+  return <Product key={slug} />;
+}
+
 function App() {
   return (
     <BrowserRouter>
@@ -23,7 +28,7 @@ function App() {
           <Route element={<StorefrontLayout />}>
             <Route path="/" element={<Home />} />
             <Route path="/shop/:category" element={<Category />} />
-            <Route path="/product/:slug" element={<Product />} />
+            <Route path="/product/:slug" element={<ProductRoute />} />
             <Route path="/cart" element={<Cart />} />
             <Route path="/checkout" element={<Checkout />} />
             <Route path="/order-success/:id" element={<OrderSuccess />} />
