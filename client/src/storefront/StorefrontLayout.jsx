@@ -41,7 +41,7 @@ export default function StorefrontLayout() {
       <footer className="border-t border-black/10 py-10">
         <div className="container-bleed flex flex-col items-center gap-3 text-[12px] uppercase tracking-[0.2em] text-black/40">
           <p>NOIRE LUXEWEAR</p>
-          <p className="text-[10px] tracking-[0.3em]">Made in Algeria</p>
+          <p className="text-[10px] tracking-[0.3em]">Made in Algeria @shushu</p>
         </div>
       </footer>
     </div>
