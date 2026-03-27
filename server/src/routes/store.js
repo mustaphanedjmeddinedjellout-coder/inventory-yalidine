@@ -21,6 +21,7 @@ function mapProduct(row, variants) {
     model_name: row.model_name,
     category: row.category,
     selling_price: row.selling_price,
+    promotion_price: row.promotion_price ?? null,
     image: row.image,
     total_stock: totalStock,
     variants,

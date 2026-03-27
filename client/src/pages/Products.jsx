@@ -17,6 +17,7 @@ const emptyProduct = {
   model_name: '',
   category: 'T-Shirt',
   selling_price: '',
+  promotion_price: '',
   cost_price: '',
   image: '',
   variants: [{ color: '', size: '', quantity: 0, image: '' }],
@@ -85,6 +86,7 @@ export default function Products() {
       model_name: product.model_name,
       category: product.category,
       selling_price: product.selling_price,
+      promotion_price: product.promotion_price ?? '',
       cost_price: product.cost_price,
       image: product.image || '',
       variants: product.variants.length > 0 ? product.variants.map((v) => ({ ...v })) : [{ color: '', size: '', quantity: 0, image: '' }],
@@ -96,11 +98,20 @@ export default function Products() {
     if (!form.model_name || !form.selling_price || !form.cost_price) {
       return toast.error('يرجى تعبئة جميع الحقول المطلوبة');
     }
+    const selling = parseFloat(form.selling_price);
+    const promotion = form.promotion_price === '' ? null : parseFloat(form.promotion_price);
+    if (!Number.isFinite(selling) || selling < 0) {
+      return toast.error('سعر البيع غير صالح');
+    }
+    if (promotion != null && (!Number.isFinite(promotion) || promotion <= 0 || promotion >= selling)) {
+      return toast.error('سعر الترويج يجب أن يكون أصغر من سعر البيع');
+    }
     try {
       setSaving(true);
       const data = {
         ...form,
-        selling_price: parseFloat(form.selling_price),
+        selling_price: selling,
+        promotion_price: promotion,
         cost_price: parseFloat(form.cost_price),
         variants: propagateColorImages(form.variants).map((v) => ({
           ...v,
@@ -335,6 +346,7 @@ export default function Products() {
                   <th className="text-right px-5 py-3 text-gray-500 font-medium">المنتج</th>
                   <th className="text-right px-5 py-3 text-gray-500 font-medium">الفئة</th>
                   <th className="text-right px-5 py-3 text-gray-500 font-medium">سعر البيع</th>
+                  <th className="text-right px-5 py-3 text-gray-500 font-medium">سعر الترويج</th>
                   <th className="text-right px-5 py-3 text-gray-500 font-medium">سعر التكلفة</th>
                   <th className="text-right px-5 py-3 text-gray-500 font-medium">الربح</th>
                   <th className="text-right px-5 py-3 text-gray-500 font-medium">المخزون</th>
@@ -352,9 +364,14 @@ export default function Products() {
                       </span>
                     </td>
                     <td className="px-5 py-3">{formatCurrency(p.selling_price)} da</td>
+                    <td className="px-5 py-3">
+                      {p.promotion_price != null && Number(p.promotion_price) > 0
+                        ? `${formatCurrency(p.promotion_price)} da`
+                        : <span className="text-gray-400">—</span>}
+                    </td>
                     <td className="px-5 py-3">{formatCurrency(p.cost_price)} da</td>
                     <td className="px-5 py-3 text-green-600 font-medium">
-                      {formatCurrency(p.selling_price - p.cost_price)} da
+                      {formatCurrency((Number(p.promotion_price) > 0 ? p.promotion_price : p.selling_price) - p.cost_price)} da
                     </td>
                     <td className="px-5 py-3">
                       <span
@@ -439,6 +456,18 @@ export default function Products() {
               />
             </div>
             <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">سعر الترويج</label>
+              <input
+                type="number"
+                step="0.01"
+                min="0"
+                value={form.promotion_price}
+                onChange={(e) => setForm((f) => ({ ...f, promotion_price: e.target.value }))}
+                className="w-full px-3 py-2.5 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                placeholder="اختياري"
+              />
+            </div>
+            <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">سعر التكلفة *</label>
               <input
                 type="number"
@@ -455,7 +484,7 @@ export default function Products() {
           {/* Profit preview */}
           {form.selling_price && form.cost_price && (
             <div className="bg-green-50 rounded-lg p-3 text-sm text-green-700">
-              الربح المتوقع: <strong>{formatCurrency(form.selling_price - form.cost_price)} da</strong> لكل قطعة
+              الربح المتوقع: <strong>{formatCurrency(((form.promotion_price && Number(form.promotion_price) > 0) ? Number(form.promotion_price) : Number(form.selling_price)) - Number(form.cost_price))} da</strong> لكل قطعة
             </div>
           )}
 

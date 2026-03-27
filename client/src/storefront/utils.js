@@ -3,6 +3,17 @@ export function formatDzd(value) {
   return new Intl.NumberFormat('en-US').format(amount) + ' DZD';
 }
 
+export function getPromotionPrice(product) {
+  const promotion = Number(product?.promotion_price ?? 0);
+  const regular = Number(product?.selling_price ?? 0);
+  if (!Number.isFinite(promotion) || promotion <= 0 || promotion >= regular) return null;
+  return promotion;
+}
+
+export function getEffectivePrice(product) {
+  return getPromotionPrice(product) ?? Number(product?.selling_price || 0);
+}
+
 export function slugify(value) {
   return value
     .toLowerCase()

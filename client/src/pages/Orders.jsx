@@ -291,6 +291,13 @@ export default function Orders() {
     return product?.variants.find((v) => v.id === parseInt(variantId));
   }
 
+  function getEffectivePrice(product) {
+    const promotion = Number(product?.promotion_price ?? 0);
+    const regular = Number(product?.selling_price ?? 0);
+    if (Number.isFinite(promotion) && promotion > 0 && promotion < regular) return promotion;
+    return regular;
+  }
+
   // Calculate order preview
   function getOrderPreview() {
     let total = 0;
@@ -298,8 +305,9 @@ export default function Orders() {
     for (const item of orderItems) {
       const product = getSelectedProduct(item.product_id);
       if (product && item.quantity > 0) {
-        total += product.selling_price * item.quantity;
-        profit += (product.selling_price - product.cost_price) * item.quantity;
+        const effective = getEffectivePrice(product);
+        total += effective * item.quantity;
+        profit += (effective - product.cost_price) * item.quantity;
       }
     }
     return { total, profit };
@@ -334,6 +342,7 @@ export default function Orders() {
           product_id: parseInt(item.product_id),
           variant_id: parseInt(item.variant_id),
           quantity: parseInt(item.quantity),
+          selling_price: getEffectivePrice(getSelectedProduct(item.product_id)),
         })),
       });
       toast.success('تم إنشاء الطلب بنجاح');
@@ -700,7 +709,7 @@ export default function Orders() {
                         <option value="">اختر المنتج</option>
                         {products.map((p) => (
                           <option key={p.id} value={p.id}>
-                            {p.model_name} — {formatCurrency(p.selling_price)} da
+                            {p.model_name} — {formatCurrency(getEffectivePrice(p))} da
                           </option>
                         ))}
                       </select>
@@ -768,9 +777,9 @@ export default function Orders() {
 
                     {product && item.quantity > 0 && (
                       <div className="text-xs text-gray-500">
-                        المجموع: {formatCurrency(product.selling_price * item.quantity)} da
+                        المجموع: {formatCurrency(getEffectivePrice(product) * item.quantity)} da
                         {' | '}
-                        الربح: {formatCurrency((product.selling_price - product.cost_price) * item.quantity)} da
+                        الربح: {formatCurrency((getEffectivePrice(product) - product.cost_price) * item.quantity)} da
                       </div>
                     )}
                   </div>

@@ -139,10 +139,19 @@ router.get('/:id', async (req, res) => {
 // POST /api/products - Create a product
 router.post('/', async (req, res) => {
   try {
-    const { model_name, category, selling_price, cost_price } = req.body;
+    const { model_name, category, selling_price, promotion_price, cost_price } = req.body;
 
     if (!model_name || !category || selling_price == null || cost_price == null) {
       return error(res, 'جميع الحقول المطلوبة يجب تعبئتها', 400);
+    }
+
+    const selling = Number(selling_price);
+    const promotion = promotion_price == null || promotion_price === '' ? null : Number(promotion_price);
+    if (!Number.isFinite(selling) || selling < 0) {
+      return error(res, 'سعر البيع غير صالح', 400);
+    }
+    if (promotion != null && (!Number.isFinite(promotion) || promotion <= 0 || promotion >= selling)) {
+      return error(res, 'سعر الترويج يجب أن يكون أصغر من سعر البيع', 400);
     }
 
     if (!['T-Shirt', 'Pants', 'Shoes'].includes(category)) {
@@ -161,6 +170,16 @@ router.put('/:id', async (req, res) => {
   try {
     const existing = await productService.getById(parseInt(req.params.id));
     if (!existing) return error(res, 'المنتج غير موجود', 404);
+
+    const selling = Number(req.body?.selling_price);
+    const promotionRaw = req.body?.promotion_price;
+    const promotion = promotionRaw == null || promotionRaw === '' ? null : Number(promotionRaw);
+    if (!Number.isFinite(selling) || selling < 0) {
+      return error(res, 'سعر البيع غير صالح', 400);
+    }
+    if (promotion != null && (!Number.isFinite(promotion) || promotion <= 0 || promotion >= selling)) {
+      return error(res, 'سعر الترويج يجب أن يكون أصغر من سعر البيع', 400);
+    }
 
     const product = await productService.update(parseInt(req.params.id), req.body);
     success(res, product);

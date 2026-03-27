@@ -1,8 +1,10 @@
 import { Link } from 'react-router-dom';
-import { formatDzd, resolveImageUrl, slugForProduct } from '../utils';
+import { formatDzd, resolveImageUrl, slugForProduct, getPromotionPrice, getEffectivePrice } from '../utils';
 import SmartImage from './SmartImage';
 
 export default function ProductCard({ product }) {
+  const promotionPrice = getPromotionPrice(product);
+  const effectivePrice = getEffectivePrice(product);
   const variantImage = product.variants?.find((v) => v.image)?.image;
   const imageCandidates = [product.image, variantImage]
     .filter(Boolean)
@@ -21,6 +23,11 @@ export default function ProductCard({ product }) {
             className="h-full w-full object-cover transition-transform duration-700 ease-out group-hover:scale-[1.06]"
           />
           <div className="absolute inset-x-0 bottom-0 h-24 bg-linear-to-t from-black/20 to-transparent opacity-0 transition-opacity duration-500 group-hover:opacity-100" />
+          {promotionPrice ? (
+            <span className="absolute right-2 top-2 rounded bg-red-600 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider text-white">
+              Promo
+            </span>
+          ) : null}
           {totalStock === 0 && (
             <div className="absolute inset-0 flex items-center justify-center bg-white/70 backdrop-blur-[2px]">
               <span className="rounded-full bg-black/80 px-3 py-1 text-[10px] font-semibold uppercase tracking-wider text-white">
@@ -33,7 +40,10 @@ export default function ProductCard({ product }) {
           <h3 className="line-clamp-1 text-[13px] font-medium text-ink transition-colors group-hover:text-black/70">
             {product.model_name}
           </h3>
-          <p className="text-[13px] font-semibold text-black/70">{formatDzd(product.selling_price)}</p>
+          <div className="flex items-baseline gap-2">
+            <p className="text-[13px] font-semibold text-black/70">{formatDzd(effectivePrice)}</p>
+            {promotionPrice ? <p className="text-[11px] text-black/35 line-through">{formatDzd(product.selling_price)}</p> : null}
+          </div>
         </div>
       </article>
     </Link>
