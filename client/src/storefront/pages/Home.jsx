@@ -64,18 +64,6 @@ export default function Home() {
 
           {!loading && !error && (
             <>
-              <div>
-                <div className="flex items-center justify-between mb-8">
-                  <h2 className="section-heading">T-Shirts</h2>
-                  <Link to="/shop/tshirts" className="text-[11px] uppercase tracking-[0.3em] text-black/40">View all</Link>
-                </div>
-                <div className="grid grid-cols-2 gap-x-4 gap-y-8 sm:grid-cols-3 lg:grid-cols-4">
-                  {tshirts.map((product) => (
-                    <ProductCard key={product.id} product={product} />
-                  ))}
-                </div>
-              </div>
-
               {promotions.length > 0 && (
                 <div className="rounded-2xl bg-[#f7f3ed] p-6 sm:p-8">
                   <div className="mb-8 flex items-end justify-between gap-4">
@@ -91,6 +79,18 @@ export default function Home() {
                   </div>
                 </div>
               )}
+
+              <div>
+                <div className="flex items-center justify-between mb-8">
+                  <h2 className="section-heading">T-Shirts</h2>
+                  <Link to="/shop/tshirts" className="text-[11px] uppercase tracking-[0.3em] text-black/40">View all</Link>
+                </div>
+                <div className="grid grid-cols-2 gap-x-4 gap-y-8 sm:grid-cols-3 lg:grid-cols-4">
+                  {tshirts.map((product) => (
+                    <ProductCard key={product.id} product={product} />
+                  ))}
+                </div>
+              </div>
 
               <div>
                 <div className="flex items-center justify-between mb-8">
