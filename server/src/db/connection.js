@@ -39,6 +39,7 @@ async function initializeDatabase() {
       model_name TEXT NOT NULL,
       category TEXT NOT NULL CHECK(category IN ('T-Shirt', 'Pants', 'Shoes')),
       selling_price REAL NOT NULL CHECK(selling_price >= 0),
+      promotion_price REAL CHECK(promotion_price >= 0),
       cost_price REAL NOT NULL CHECK(cost_price >= 0),
       image TEXT,
       created_at TEXT DEFAULT (datetime('now')),
@@ -134,6 +135,12 @@ async function setupDatabase() {
   const variantCols = variantColsResult.rows.map(r => r.name);
   if (!variantCols.includes('image')) {
     await db.execute('ALTER TABLE product_variants ADD COLUMN image TEXT');
+  }
+
+  const productColsResult = await db.execute("PRAGMA table_info('products')");
+  const productCols = productColsResult.rows.map(r => r.name);
+  if (!productCols.includes('promotion_price')) {
+    await db.execute('ALTER TABLE products ADD COLUMN promotion_price REAL');
   }
 
   // Auto-seed if empty

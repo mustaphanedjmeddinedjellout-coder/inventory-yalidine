@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { fetchProductById, fetchProducts } from '../api';
-import { formatDzd, extractIdFromSlug, resolveImageUrl } from '../utils';
+import { formatDzd, extractIdFromSlug, resolveImageUrl, getPromotionPrice, getEffectivePrice } from '../utils';
 import QuantityPicker from '../components/QuantityPicker';
 import { useCart } from '../cart-context';
 import SmartImage from '../components/SmartImage';
@@ -246,6 +246,8 @@ export default function Product() {
 
   const maxQuantity = selectedVariant?.quantity || 0;
   const displayImage = selectedVariant?.image || selectedColorImage || product?.image;
+  const promotionPrice = getPromotionPrice(product);
+  const effectivePrice = getEffectivePrice(product);
   const suggestedProducts = useMemo(() => {
     if (!catalog.length) return [];
 
@@ -306,7 +308,7 @@ export default function Product() {
       variantId: String(selectedVariant.id),
       title: product.model_name,
       image: resolveImageUrl(selectedVariant.image || selectedColorImage || product.image),
-      price: product.selling_price,
+      price: effectivePrice,
       size: selectedVariant.size,
       color: selectedVariant.color,
       quantity,
@@ -387,7 +389,10 @@ export default function Product() {
           <div>
             <p className="text-[11px] uppercase tracking-[0.3em] text-black/40">المخزون المتاح</p>
             <h1 className="text-3xl font-display text-ink mt-3">{product.model_name}</h1>
-            <p className="text-[16px] text-black/60 mt-2">{formatDzd(product.selling_price)}</p>
+            <div className="mt-2 flex items-baseline gap-2">
+              <p className="text-[16px] text-black/60">{formatDzd(effectivePrice)}</p>
+              {promotionPrice ? <p className="text-[13px] text-black/35 line-through">{formatDzd(product.selling_price)}</p> : null}
+            </div>
           </div>
 
           <div className="space-y-4">

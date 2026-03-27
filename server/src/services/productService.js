@@ -96,12 +96,12 @@ const productService = {
    * Create a new product with variants
    */
   async create(data) {
-    const { model_name, category, selling_price, cost_price, image, variants } = data;
+    const { model_name, category, selling_price, promotion_price, cost_price, image, variants } = data;
     const normalizedVariants = normalizeVariants(variants || []);
 
     const productResult = await db.execute({
-      sql: 'INSERT INTO products (model_name, category, selling_price, cost_price, image) VALUES (?, ?, ?, ?, ?)',
-      args: [model_name, category, selling_price, cost_price, image || null],
+      sql: 'INSERT INTO products (model_name, category, selling_price, promotion_price, cost_price, image) VALUES (?, ?, ?, ?, ?, ?)',
+      args: [model_name, category, selling_price, promotion_price ?? null, cost_price, image || null],
     });
 
     const productId = Number(productResult.lastInsertRowid);
@@ -122,12 +122,12 @@ const productService = {
    * Update a product and its variants
    */
   async update(id, data) {
-    const { model_name, category, selling_price, cost_price, image, variants } = data;
+    const { model_name, category, selling_price, promotion_price, cost_price, image, variants } = data;
     const normalizedVariants = normalizeVariants(variants || []);
 
     await db.execute({
-      sql: `UPDATE products SET model_name = ?, category = ?, selling_price = ?, cost_price = ?, image = COALESCE(?, image), updated_at = datetime('now') WHERE id = ?`,
-      args: [model_name, category, selling_price, cost_price, image || null, id],
+      sql: `UPDATE products SET model_name = ?, category = ?, selling_price = ?, promotion_price = ?, cost_price = ?, image = COALESCE(?, image), updated_at = datetime('now') WHERE id = ?`,
+      args: [model_name, category, selling_price, promotion_price ?? null, cost_price, image || null, id],
     });
 
     if (variants) {
@@ -193,7 +193,7 @@ const productService = {
    */
   async getProductsForOrder() {
     const productsResult = await db.execute(
-      'SELECT id, model_name, category, selling_price, cost_price FROM products ORDER BY model_name'
+      'SELECT id, model_name, category, selling_price, promotion_price, cost_price FROM products ORDER BY model_name'
     );
     const products = [];
     for (const p of productsResult.rows) {
