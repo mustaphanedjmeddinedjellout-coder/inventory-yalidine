@@ -30,6 +30,17 @@ export default function Home() {
   }, []);
 
   const tshirts = useMemo(() => products.filter((p) => p.category === 'T-Shirt').slice(0, 8), [products]);
+  const promotions = useMemo(
+    () =>
+      products
+        .filter((p) => {
+          const regular = Number(p?.selling_price ?? 0);
+          const promo = Number(p?.promotion_price ?? 0);
+          return Number.isFinite(promo) && promo > 0 && promo < regular;
+        })
+        .slice(0, 4),
+    [products]
+  );
   const pants = useMemo(() => products.filter((p) => p.category === 'Pants').slice(0, 4), [products]);
   const shoes = useMemo(() => products.filter((p) => p.category === 'Shoes').slice(0, 4), [products]);
 
@@ -64,6 +75,22 @@ export default function Home() {
                   ))}
                 </div>
               </div>
+
+              {promotions.length > 0 && (
+                <div className="rounded-2xl bg-[#f7f3ed] p-6 sm:p-8">
+                  <div className="mb-8 flex items-end justify-between gap-4">
+                    <div>
+                      <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-black/45">Limited-time deals</p>
+                      <h2 className="section-heading mt-2">Promotion Picks</h2>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-x-4 gap-y-8 sm:grid-cols-3 lg:grid-cols-4">
+                    {promotions.map((product) => (
+                      <ProductCard key={product.id} product={product} />
+                    ))}
+                  </div>
+                </div>
+              )}
 
               <div>
                 <div className="flex items-center justify-between mb-8">
