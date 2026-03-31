@@ -30,8 +30,30 @@ export default function Checkout() {
   const [deliveryPrice, setDeliveryPrice] = useState(0);
   const total = useMemo(() => subtotal + deliveryPrice, [subtotal, deliveryPrice]);
 
+  function normalizePhoneDigits(value) {
+    return String(value || '')
+      .replace(/[\u0660-\u0669]/g, (d) => String(d.charCodeAt(0) - 0x0660))
+      .replace(/[\u06F0-\u06F9]/g, (d) => String(d.charCodeAt(0) - 0x06f0))
+      .replace(/\D/g, '');
+  }
+
   function createEventId() {
     return `purchase-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+  }
+
+  function scrollToField(fieldId) {
+    if (typeof window === 'undefined') return;
+    requestAnimationFrame(() => {
+      const element = document.getElementById(fieldId);
+      if (!element) return;
+      const top = window.scrollY + element.getBoundingClientRect().top - 120;
+      window.scrollTo({ top, behavior: 'smooth' });
+      try {
+        element.focus({ preventScroll: true });
+      } catch {
+        element.focus();
+      }
+    });
   }
 
   const set = (key, value) => setForm((prev) => ({ ...prev, [key]: value }));
@@ -131,13 +153,47 @@ export default function Checkout() {
 
   const submit = async () => {
     if (items.length === 0) return;
-    if (!form.name || !form.phone || !form.wilayaId || !form.communeId || (form.deliveryMethod === 'home' && !form.address)) {
+
+    if (!form.name.trim()) {
       setError('يرجى ملء جميع الحقول المطلوبة.');
+      scrollToField('checkout-name');
+      return;
+    }
+
+    if (!form.phone.trim()) {
+      setError('يرجى ملء جميع الحقول المطلوبة.');
+      scrollToField('checkout-phone');
+      return;
+    }
+
+    if (!form.wilayaId) {
+      setError('يرجى ملء جميع الحقول المطلوبة.');
+      scrollToField('checkout-wilaya');
+      return;
+    }
+
+    if (!form.communeId) {
+      setError('يرجى ملء جميع الحقول المطلوبة.');
+      scrollToField('checkout-commune');
+      return;
+    }
+
+    if (form.deliveryMethod === 'home' && !form.address.trim()) {
+      setError('يرجى ملء جميع الحقول المطلوبة.');
+      scrollToField('checkout-address');
+      return;
+    }
+
+    const normalizedPhone = normalizePhoneDigits(form.phone);
+    if (!/^\d{10}$/.test(normalizedPhone)) {
+      setError('رقم هاتفك غير صحيح. يجب أن يكون 10 أرقام.');
+      scrollToField('checkout-phone');
       return;
     }
 
     if (form.deliveryMethod === 'stopdesk' && !form.centerId) {
       setError('يرجى اختيار مكتب الاستلام.');
+      scrollToField('checkout-center');
       return;
     }
 
@@ -150,7 +206,7 @@ export default function Checkout() {
       const payload = {
         customer: {
           name: form.name,
-          phone: form.phone,
+          phone: normalizedPhone,
           wilaya: form.wilayaName,
           commune: form.communeName,
           eventId,
@@ -208,11 +264,19 @@ export default function Checkout() {
         <div className="space-y-5">
           <div className="field-block">
             <label>الاسم الكامل</label>
-            <input className="input-field" value={form.name} onChange={(e) => set('name', e.target.value)} />
+            <input id="checkout-name" className="input-field" value={form.name} onChange={(e) => set('name', e.target.value)} />
           </div>
           <div className="field-block">
             <label>الهاتف</label>
-            <input className="input-field" value={form.phone} onChange={(e) => set('phone', e.target.value)} />
+            <input
+              id="checkout-phone"
+              className="input-field"
+              value={form.phone}
+              onChange={(e) => set('phone', e.target.value)}
+              inputMode="numeric"
+              maxLength={10}
+              placeholder="0XXXXXXXXX"
+            />
           </div>
           <div className="field-block">
             <label>طريقة التوصيل</label>
@@ -245,6 +309,7 @@ export default function Checkout() {
             <div className="field-block">
               <label>الولاية</label>
               <select
+                id="checkout-wilaya"
                 className="input-field"
                 value={form.wilayaId}
                 onChange={(e) => {
@@ -263,6 +328,7 @@ export default function Checkout() {
             <div className="field-block">
               <label>البلدية</label>
               <select
+                id="checkout-commune"
                 className="input-field"
                 value={form.communeId}
                 onChange={(e) => {
@@ -286,6 +352,7 @@ export default function Checkout() {
             <div className="field-block">
               <label>مكتب ياليدين</label>
               <select
+                id="checkout-center"
                 className="input-field"
                 value={form.centerId}
                 onChange={(e) => {
@@ -308,6 +375,7 @@ export default function Checkout() {
           <div className="field-block">
             <label>العنوان</label>
             <input
+              id="checkout-address"
               className="input-field"
               value={form.address}
               onChange={(e) => set('address', e.target.value)}
