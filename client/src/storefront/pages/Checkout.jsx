@@ -30,6 +30,10 @@ export default function Checkout() {
   const [deliveryPrice, setDeliveryPrice] = useState(0);
   const total = useMemo(() => subtotal + deliveryPrice, [subtotal, deliveryPrice]);
 
+  function createEventId() {
+    return `purchase-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+  }
+
   const set = (key, value) => setForm((prev) => ({ ...prev, [key]: value }));
 
   useEffect(() => {
@@ -141,12 +145,16 @@ export default function Checkout() {
     setError('');
 
     try {
+      const eventId = createEventId();
+      const eventSourceUrl = typeof window !== 'undefined' ? window.location.href : '';
       const payload = {
         customer: {
           name: form.name,
           phone: form.phone,
           wilaya: form.wilayaName,
           commune: form.communeName,
+          eventId,
+          eventSourceUrl,
           address: form.deliveryMethod === 'stopdesk'
             ? `${form.centerName} - Bureau Yalidine`
             : form.address,
@@ -165,6 +173,22 @@ export default function Checkout() {
 
       const result = await submitCheckout(payload);
       const orderRef = result.orderNumber || result.orderId || 'order';
+
+      if (typeof window !== 'undefined' && window.fbq) {
+        window.fbq(
+          'track',
+          'Purchase',
+          {
+            currency: 'DZD',
+            value: Number(total.toFixed(2)),
+            content_type: 'product',
+            content_ids: items.map((item) => String(item.productId)),
+            num_items: items.reduce((sum, item) => sum + Number(item.quantity || 0), 0),
+          },
+          { eventID: eventId }
+        );
+      }
+
       clearCart();
       navigate(`/order-success/${orderRef}`);
     } catch (err) {
@@ -175,7 +199,7 @@ export default function Checkout() {
   };
 
   return (
-    <div className="container-bleed py-12">
+    <div className="container-bleed py-12 pb-32 sm:pb-12">
       <h1 className="section-heading mb-8">إتمام الطلب</h1>
 
       {error && <p className="text-red-500 text-[13px] mb-4">{error}</p>}
@@ -320,7 +344,11 @@ export default function Checkout() {
             <span>الإجمالي</span>
             <span>{formatDzd(total)}</span>
           </div>
-          <button className="btn-primary w-full" onClick={submit} disabled={loading}>
+          <button
+            className="btn-primary fixed bottom-[calc(env(safe-area-inset-bottom)+16px)] left-4 right-4 z-40 sm:static sm:left-auto sm:right-auto sm:bottom-auto sm:w-full"
+            onClick={submit}
+            disabled={loading}
+          >
             {loading ? 'جار الإرسال...' : 'تأكيد الطلب'}
           </button>
         </div>

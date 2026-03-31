@@ -19,7 +19,7 @@ export default function Cart() {
   }
 
   return (
-    <div className="container-bleed py-12">
+    <div className="container-bleed py-12 pb-32 sm:pb-12">
       <div className="flex items-center justify-between mb-8">
         <h1 className="section-heading">سلة المشتريات</h1>
         <span className="text-[12px] text-black/40">{items.length} منتجات</span>
@@ -73,7 +73,10 @@ export default function Cart() {
       >
         أضف منتجا آخر
       </Link>
-      <Link to="/checkout" className="btn-primary mt-6 inline-flex w-full justify-center">
+      <Link
+        to="/checkout"
+        className="btn-primary fixed bottom-[calc(env(safe-area-inset-bottom)+16px)] left-4 right-4 z-40 inline-flex justify-center sm:static sm:left-auto sm:right-auto sm:bottom-auto sm:mt-6 sm:w-full"
+      >
         تأكيد الطلب
       </Link>
     </div>

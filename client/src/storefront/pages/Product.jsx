@@ -330,7 +330,7 @@ export default function Product() {
   }
 
   return (
-    <div className="container-bleed py-12">
+    <div className="container-bleed py-12 pb-32 sm:pb-12">
       <div className="grid gap-10 lg:grid-cols-2">
         <div className="relative mx-auto aspect-3/4 w-full max-w-115 overflow-hidden bg-[#efeae2]">
           <div
@@ -468,7 +468,7 @@ export default function Product() {
 
           <button
             type="button"
-            className="btn-primary w-full"
+            className="btn-primary fixed bottom-[calc(env(safe-area-inset-bottom)+16px)] left-4 right-4 z-40 sm:static sm:left-auto sm:right-auto sm:bottom-auto sm:w-full"
             disabled={!selectedVariant || maxQuantity <= 0}
             onClick={onAdd}
           >

@@ -4,6 +4,7 @@ function getConfig() {
   return {
     pixelId: (process.env.META_PIXEL_ID || '').trim(),
     accessToken: (process.env.META_ACCESS_TOKEN || '').trim(),
+    apiVersion: (process.env.META_API_VERSION || 'v22.0').trim(),
     testEventCode: (process.env.META_TEST_EVENT_CODE || '').trim(),
   };
 }
@@ -19,12 +20,32 @@ function sha256(value) {
 
 function normalizePhone(phone) {
   if (!phone) return null;
-  return String(phone).replace(/\D/g, '');
+  let digits = String(phone).replace(/\D/g, '');
+  if (!digits) return null;
+
+  if (digits.startsWith('00')) {
+    digits = digits.slice(2);
+  }
+
+  if (digits.startsWith('0')) {
+    digits = `213${digits.slice(1)}`;
+  } else if (!digits.startsWith('213') && digits.length === 9) {
+    digits = `213${digits}`;
+  }
+
+  if (!digits.startsWith('213') || digits.length < 12) return null;
+  return digits;
 }
 
 function normalizeName(name) {
   if (!name) return null;
   return String(name).trim().toLowerCase();
+}
+
+function normalizeEmail(email) {
+  if (!email) return null;
+  const normalized = String(email).trim().toLowerCase();
+  return normalized || null;
 }
 
 async function sendEvent({
@@ -38,7 +59,7 @@ async function sendEvent({
   userAgent,
 }) {
   if (!isConfigured()) return { skipped: true };
-  const { pixelId, accessToken, testEventCode } = getConfig();
+  const { pixelId, accessToken, apiVersion, testEventCode } = getConfig();
 
   const payload = {
     data: [
@@ -51,6 +72,7 @@ async function sendEvent({
         user_data: {
           client_ip_address: clientIp,
           client_user_agent: userAgent,
+          em: user?.email ? [sha256(user.email)] : undefined,
           ph: user?.phone ? [sha256(user.phone)] : undefined,
           fn: user?.firstname ? [sha256(user.firstname)] : undefined,
           ln: user?.lastname ? [sha256(user.lastname)] : undefined,
@@ -65,7 +87,7 @@ async function sendEvent({
   if (testEventCode) payload.test_event_code = testEventCode;
 
   const res = await fetch(
-    `https://graph.facebook.com/v19.0/${pixelId}/events?access_token=${accessToken}`,
+    `https://graph.facebook.com/${apiVersion}/${pixelId}/events?access_token=${accessToken}`,
     {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -81,9 +103,10 @@ async function sendEvent({
   return data;
 }
 
-function buildUserData({ firstname, familyname, phone, wilaya, commune }) {
+function buildUserData({ firstname, familyname, phone, email, wilaya, commune }) {
   const normalized = {
     phone: normalizePhone(phone),
+    email: normalizeEmail(email),
     firstname: normalizeName(firstname),
     lastname: normalizeName(familyname),
     wilaya: normalizeName(wilaya),
