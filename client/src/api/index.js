@@ -27,6 +27,7 @@ export const orderApi = {
   create: (data) => api.post('/orders', data),
   approve: (id) => api.post(`/orders/${id}/approve`),
   syncStatus: (id) => api.post(`/orders/${id}/sync-status`),
+  syncOld: () => api.post('/orders/sync-old'),
   delete: (id) => api.delete(`/orders/${id}`),
 };
 
