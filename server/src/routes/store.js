@@ -112,8 +112,6 @@ router.post('/checkout', storeApiKey, async (req, res) => {
         quantity: Number(item.quantity),
         selling_price: item.selling_price != null ? Number(item.selling_price) : undefined,
       })),
-      // Storefront orders are immediately approved so they are sent to Yalidine and can sync status.
-      approve: true,
     };
 
     const order = await orderService.create(orderInput);
