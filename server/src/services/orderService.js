@@ -7,6 +7,75 @@ const { db } = require('../db/connection');
 const { calculateLineItem, calculateOrderTotals, generateOrderNumber } = require('../utils/calculations');
 const yalidineService = require('./yalidineService');
 
+const FAILED_DELIVERY_KEYWORDS = [
+  'echec livraison',
+  'échec livraison',
+  'failed delivery',
+  'delivery failed',
+  'retour',
+  'returned',
+  'return to sender',
+  'non livre',
+  'non livré',
+  'annule',
+  'annulé',
+  'cancelled',
+  'canceled',
+  'refuse',
+  'refused',
+];
+
+function normalizeStatusText(value) {
+  return String(value || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .trim();
+}
+
+function extractYalidineStatus(trackingPayload) {
+  if (!trackingPayload || typeof trackingPayload !== 'object') return null;
+
+  const candidates = [
+    trackingPayload.state,
+    trackingPayload.status,
+    trackingPayload.last_status,
+    trackingPayload.last_state,
+    trackingPayload.current_status,
+    trackingPayload.current_state,
+    trackingPayload?.data?.state,
+    trackingPayload?.data?.status,
+    trackingPayload?.data?.last_status,
+    trackingPayload?.data?.last_state,
+    trackingPayload?.data?.current_status,
+    trackingPayload?.data?.current_state,
+    trackingPayload?.data?.last_status?.name,
+    trackingPayload?.data?.last_state?.name,
+    trackingPayload?.data?.current_status?.name,
+    trackingPayload?.data?.current_state?.name,
+    Array.isArray(trackingPayload?.history) ? trackingPayload.history[0]?.status : null,
+    Array.isArray(trackingPayload?.history) ? trackingPayload.history[0]?.state : null,
+    Array.isArray(trackingPayload?.history) ? trackingPayload.history[0]?.label : null,
+    Array.isArray(trackingPayload?.data?.history) ? trackingPayload.data.history[0]?.status : null,
+    Array.isArray(trackingPayload?.data?.history) ? trackingPayload.data.history[0]?.state : null,
+    Array.isArray(trackingPayload?.data?.history) ? trackingPayload.data.history[0]?.label : null,
+  ];
+
+  for (const candidate of candidates) {
+    if (typeof candidate === 'string' && candidate.trim()) {
+      return candidate.trim();
+    }
+  }
+
+  return null;
+}
+
+function isFailedDeliveryStatus(statusText) {
+  const normalized = normalizeStatusText(statusText);
+  if (!normalized) return false;
+  return FAILED_DELIVERY_KEYWORDS.some((keyword) => normalized.includes(normalizeStatusText(keyword)));
+}
+
 const orderService = {
   /**
    * Get all orders with optional date filtering
@@ -30,7 +99,9 @@ const orderService = {
 
     query += ' ORDER BY created_at DESC';
     const result = await db.execute({ sql: query, args });
-    return result.rows;
+    const orders = result.rows;
+    await this.syncStatusesForOrders(orders);
+    return orders;
   },
 
   /**
@@ -43,7 +114,61 @@ const orderService = {
     const order = { ...result.rows[0] };
     const itemsResult = await db.execute({ sql: 'SELECT * FROM order_items WHERE order_id = ?', args: [id] });
     order.items = itemsResult.rows;
+    await this.syncStatusForOrder(order);
     return order;
+  },
+
+  async syncStatusesForOrders(orders) {
+    if (!Array.isArray(orders) || orders.length === 0) return;
+
+    for (const order of orders) {
+      await this.syncStatusForOrder(order);
+    }
+  },
+
+  async syncStatusForOrder(order) {
+    if (!order || !order.id || !order.yalidine_tracking) return;
+    if (!yalidineService.isConfigured()) return;
+
+    try {
+      const trackingPayload = await yalidineService.getTracking(order.yalidine_tracking);
+      const latestStatus = extractYalidineStatus(trackingPayload);
+
+      if (latestStatus && latestStatus !== order.yalidine_status) {
+        await db.execute({
+          sql: 'UPDATE orders SET yalidine_status = ? WHERE id = ?',
+          args: [latestStatus, order.id],
+        });
+        order.yalidine_status = latestStatus;
+      }
+
+      if (!isFailedDeliveryStatus(order.yalidine_status)) {
+        return;
+      }
+
+      if (Number(order.stock_restored || 0) === 1) {
+        return;
+      }
+
+      const items = Array.isArray(order.items) && order.items.length > 0
+        ? order.items
+        : (await db.execute({ sql: 'SELECT variant_id, quantity FROM order_items WHERE order_id = ?', args: [order.id] })).rows;
+
+      for (const item of items) {
+        await db.execute({
+          sql: `UPDATE product_variants SET quantity = quantity + ?, updated_at = datetime('now') WHERE id = ?`,
+          args: [item.quantity, item.variant_id],
+        });
+      }
+
+      await db.execute({
+        sql: 'UPDATE orders SET stock_restored = 1 WHERE id = ?',
+        args: [order.id],
+      });
+      order.stock_restored = 1;
+    } catch (err) {
+      console.warn(`Failed to sync Yalidine status for order ${order.id}:`, err.message);
+    }
   },
 
   /**
@@ -199,12 +324,12 @@ const orderService = {
     if (result && Array.isArray(result) && result.length > 0) {
       const parcel = result[0];
       await db.execute({
-        sql: `UPDATE orders SET order_status = 'approved', yalidine_tracking = ?, yalidine_status = ?, yalidine_label = ? WHERE id = ?`,
+        sql: `UPDATE orders SET order_status = 'approved', stock_restored = 0, yalidine_tracking = ?, yalidine_status = ?, yalidine_label = ? WHERE id = ?`,
         args: [parcel.tracking || null, parcel.state || 'submitted', parcel.label || null, id],
       });
     } else {
       await db.execute({
-        sql: `UPDATE orders SET order_status = 'approved' WHERE id = ?`,
+        sql: `UPDATE orders SET order_status = 'approved', stock_restored = 0 WHERE id = ?`,
         args: [id],
       });
     }
@@ -216,14 +341,15 @@ const orderService = {
    * Delete an order (restores stock)
    */
   async delete(id) {
-    const orderResult = await db.execute({ sql: 'SELECT order_status FROM orders WHERE id = ?', args: [id] });
+    const orderResult = await db.execute({ sql: 'SELECT order_status, stock_restored FROM orders WHERE id = ?', args: [id] });
     if (orderResult.rows.length === 0) {
       throw new Error('الطلب غير موجود');
     }
 
     const isApproved = String(orderResult.rows[0].order_status || '') === 'approved';
+    const isStockAlreadyRestored = Number(orderResult.rows[0].stock_restored || 0) === 1;
 
-    if (isApproved) {
+    if (isApproved && !isStockAlreadyRestored) {
       const itemsResult = await db.execute({ sql: 'SELECT * FROM order_items WHERE order_id = ?', args: [id] });
 
       for (const item of itemsResult.rows) {
