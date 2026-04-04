@@ -62,7 +62,6 @@ async function initializeDatabase() {
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       order_number TEXT NOT NULL UNIQUE,
       order_status TEXT NOT NULL DEFAULT 'pending',
-      stock_restored INTEGER NOT NULL DEFAULT 0,
       total_amount REAL NOT NULL DEFAULT 0,
       total_cost REAL NOT NULL DEFAULT 0,
       total_profit REAL NOT NULL DEFAULT 0,
@@ -120,7 +119,6 @@ async function setupDatabase() {
   const cols = colsResult.rows.map(r => r.name);
   const migrations = [
     ['order_status', "TEXT NOT NULL DEFAULT 'pending'"],
-    ['stock_restored', "INTEGER NOT NULL DEFAULT 0"],
     ['delivery_price', "REAL NOT NULL DEFAULT 0"],
     ['firstname', 'TEXT'], ['familyname', 'TEXT'], ['contact_phone', 'TEXT'],
     ['address', 'TEXT'], ['to_wilaya_name', 'TEXT'], ['to_commune_name', 'TEXT'],
