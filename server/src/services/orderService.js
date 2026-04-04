@@ -130,6 +130,53 @@ const orderService = {
   },
 
   /**
+   * Sync Yalidine statuses for all existing tracked orders.
+   */
+  async syncOldOrdersStatuses() {
+    if (!yalidineService.isConfigured()) {
+      throw new Error('Yalidine غير مفعّل. يرجى ضبط مفاتيح API.');
+    }
+
+    const result = await db.execute({
+      sql: `SELECT id, yalidine_tracking, yalidine_status
+            FROM orders
+            WHERE yalidine_tracking IS NOT NULL
+              AND trim(yalidine_tracking) != ''
+            ORDER BY created_at ASC`,
+    });
+
+    let synced = 0;
+    let updated = 0;
+    let failed = 0;
+
+    await Promise.all(result.rows.map(async (order) => {
+      try {
+        const trackingPayload = await yalidineService.getTracking(order.yalidine_tracking);
+        const latestStatus = extractYalidineStatus(trackingPayload);
+        synced += 1;
+
+        if (latestStatus && latestStatus !== order.yalidine_status) {
+          await db.execute({
+            sql: 'UPDATE orders SET yalidine_status = ? WHERE id = ?',
+            args: [latestStatus, order.id],
+          });
+          updated += 1;
+        }
+      } catch (err) {
+        failed += 1;
+        console.warn(`Failed to sync old order ${order.id}:`, err.message);
+      }
+    }));
+
+    return {
+      totalTracked: result.rows.length,
+      synced,
+      updated,
+      failed,
+    };
+  },
+
+  /**
    * Create an order with line items.
    */
   async create(data) {
