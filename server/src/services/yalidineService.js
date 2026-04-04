@@ -6,6 +6,16 @@
 
 const BASE_URL = 'https://api.yalidine.app/v1';
 
+function toQueryString(params = {}) {
+  const search = new URLSearchParams();
+  for (const [key, value] of Object.entries(params)) {
+    if (value === undefined || value === null || value === '') continue;
+    search.set(key, String(value));
+  }
+  const query = search.toString();
+  return query ? `?${query}` : '';
+}
+
 function getCredentials() {
   return {
     apiId: (process.env.YALIDINE_API_ID || '').trim(),
@@ -149,6 +159,41 @@ const yalidineService = {
    */
   async getTracking(tracking) {
     return request('GET', `/parcels/${tracking}/`);
+  },
+
+  /**
+   * List parcels by filters (used for account-wide sync flows).
+   */
+  async getParcels(params = {}) {
+    const query = toQueryString(params);
+    return request('GET', `/parcels/${query}`);
+  },
+
+  /**
+   * Fetch all pages of parcels for a given phone number.
+   */
+  async getAllParcelsByPhone(phone, options = {}) {
+    const pageSize = Number(options.pageSize || 100);
+    const maxPages = Number(options.maxPages || 5);
+    const all = [];
+    let page = 1;
+
+    while (page <= maxPages) {
+      const result = await this.getParcels({
+        contact_phone: phone,
+        page,
+        page_size: pageSize,
+      });
+
+      const rows = Array.isArray(result) ? result : (Array.isArray(result?.data) ? result.data : []);
+      all.push(...rows);
+
+      const hasMore = Boolean(result?.has_more) || (rows.length === pageSize);
+      if (!hasMore) break;
+      page += 1;
+    }
+
+    return all;
   },
 
   /**
