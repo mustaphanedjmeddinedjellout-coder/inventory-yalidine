@@ -44,6 +44,102 @@ function extractYalidineStatus(payload) {
   return null;
 }
 
+function normalizePhone(value) {
+  return String(value || '').replace(/\D/g, '');
+}
+
+function getPhoneTail(value) {
+  const digits = normalizePhone(value);
+  if (!digits) return '';
+  return digits.slice(-9);
+}
+
+function getPhoneCandidates(value) {
+  const digits = normalizePhone(value);
+  if (!digits) return [];
+
+  const set = new Set([digits]);
+  if (digits.startsWith('0') && digits.length >= 10) {
+    set.add(`213${digits.slice(1)}`);
+    set.add(`+213${digits.slice(1)}`);
+  }
+  if (digits.startsWith('213') && digits.length >= 12) {
+    set.add(`0${digits.slice(3)}`);
+    set.add(`+${digits}`);
+  }
+
+  return Array.from(set);
+}
+
+function extractParcelTracking(parcel) {
+  const candidates = [
+    parcel?.tracking,
+    parcel?.tracking_number,
+    parcel?.tracking_num,
+    parcel?.barcode,
+    parcel?.parcel_tracking,
+  ];
+  for (const candidate of candidates) {
+    if (typeof candidate === 'string' && candidate.trim()) return candidate.trim();
+  }
+  return null;
+}
+
+function extractParcelPhone(parcel) {
+  const candidates = [
+    parcel?.contact_phone,
+    parcel?.phone,
+    parcel?.mobile,
+    parcel?.customer_phone,
+    parcel?.receiver_phone,
+  ];
+  for (const candidate of candidates) {
+    if (typeof candidate === 'string' && candidate.trim()) return candidate.trim();
+  }
+  return null;
+}
+
+function extractParcelOrderId(parcel) {
+  const candidates = [
+    parcel?.order_id,
+    parcel?.orderId,
+    parcel?.id_order,
+  ];
+  for (const candidate of candidates) {
+    if (candidate == null) continue;
+    const val = String(candidate).trim();
+    if (val) return val;
+  }
+  return null;
+}
+
+function extractParcelLabel(parcel) {
+  const candidates = [
+    parcel?.label,
+    parcel?.status_label,
+    parcel?.state,
+  ];
+  for (const candidate of candidates) {
+    if (typeof candidate === 'string' && candidate.trim()) return candidate.trim();
+  }
+  return null;
+}
+
+function parcelTimestamp(parcel) {
+  const candidates = [
+    parcel?.updated_at,
+    parcel?.created_at,
+    parcel?.updatedAt,
+    parcel?.createdAt,
+    parcel?.date_creation,
+  ];
+  for (const candidate of candidates) {
+    const t = new Date(candidate || '').getTime();
+    if (!Number.isNaN(t) && t > 0) return t;
+  }
+  return 0;
+}
+
 const orderService = {
   /**
    * Get all orders with optional date filtering
@@ -173,6 +269,122 @@ const orderService = {
       synced,
       updated,
       failed,
+    };
+  },
+
+  /**
+   * Sync old admin orders from Yalidine account by phone number.
+   * If phone is provided, only orders with that phone are processed.
+   */
+  async syncOrdersFromYalidineByPhone(phone) {
+    if (!yalidineService.isConfigured()) {
+      throw new Error('Yalidine غير مفعّل. يرجى ضبط مفاتيح API.');
+    }
+
+    const phoneFilter = String(phone || '').trim();
+    const where = ["contact_phone IS NOT NULL", "trim(contact_phone) != ''"];
+    const args = [];
+
+    if (phoneFilter) {
+      where.push("replace(replace(replace(contact_phone, '+', ''), ' ', ''), '-', '') LIKE ?");
+      args.push(`%${normalizePhone(phoneFilter)}%`);
+    }
+
+    const ordersResult = await db.execute({
+      sql: `SELECT id, order_number, contact_phone, yalidine_tracking, yalidine_status, yalidine_label
+            FROM orders
+            WHERE ${where.join(' AND ')}
+            ORDER BY created_at ASC`,
+      args,
+    });
+
+    const orders = ordersResult.rows;
+    const parcelsByPhoneTail = new Map();
+
+    let matched = 0;
+    let updated = 0;
+    let failed = 0;
+    let noMatch = 0;
+
+    for (const order of orders) {
+      const tail = getPhoneTail(order.contact_phone);
+      if (!tail) {
+        noMatch += 1;
+        continue;
+      }
+
+      if (!parcelsByPhoneTail.has(tail)) {
+        const parcels = [];
+        const candidates = getPhoneCandidates(order.contact_phone);
+        for (const candidate of candidates) {
+          try {
+            const rows = await yalidineService.getAllParcelsByPhone(candidate, { maxPages: 5, pageSize: 100 });
+            if (rows.length > 0) {
+              parcels.push(...rows);
+              break;
+            }
+          } catch {
+            // Try next phone format candidate.
+          }
+        }
+        parcelsByPhoneTail.set(tail, parcels);
+      }
+
+      try {
+        const pool = parcelsByPhoneTail.get(tail) || [];
+        const samePhone = pool.filter((parcel) => getPhoneTail(extractParcelPhone(parcel)) === tail);
+
+        if (samePhone.length === 0) {
+          noMatch += 1;
+          continue;
+        }
+
+        const byOrderId = samePhone.find((parcel) => extractParcelOrderId(parcel) === String(order.order_number || '').trim());
+        const byTracking = order.yalidine_tracking
+          ? samePhone.find((parcel) => extractParcelTracking(parcel) === String(order.yalidine_tracking).trim())
+          : null;
+
+        const best = byOrderId
+          || byTracking
+          || samePhone.slice().sort((a, b) => parcelTimestamp(b) - parcelTimestamp(a))[0];
+
+        if (!best) {
+          noMatch += 1;
+          continue;
+        }
+
+        matched += 1;
+
+        const nextTracking = extractParcelTracking(best) || order.yalidine_tracking || null;
+        const nextStatus = extractYalidineStatus(best) || order.yalidine_status || null;
+        const nextLabel = extractParcelLabel(best) || order.yalidine_label || null;
+
+        if (
+          String(nextTracking || '') !== String(order.yalidine_tracking || '')
+          || String(nextStatus || '') !== String(order.yalidine_status || '')
+          || String(nextLabel || '') !== String(order.yalidine_label || '')
+        ) {
+          await db.execute({
+            sql: `UPDATE orders
+                  SET yalidine_tracking = ?, yalidine_status = ?, yalidine_label = ?
+                  WHERE id = ?`,
+            args: [nextTracking, nextStatus, nextLabel, order.id],
+          });
+          updated += 1;
+        }
+      } catch (err) {
+        failed += 1;
+        console.warn(`Failed phone-sync for order ${order.id}:`, err.message);
+      }
+    }
+
+    return {
+      totalOrders: orders.length,
+      matched,
+      updated,
+      noMatch,
+      failed,
+      phoneFilter: phoneFilter || null,
     };
   },
 

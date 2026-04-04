@@ -17,6 +17,7 @@ export default function Orders() {
   const [loading, setLoading] = useState(true);
   const [dateFilter, setDateFilter] = useState('');
   const [syncingOldOrders, setSyncingOldOrders] = useState(false);
+  const [syncingByPhone, setSyncingByPhone] = useState(false);
 
   // New order state
   const [createOpen, setCreateOpen] = useState(false);
@@ -409,6 +410,21 @@ export default function Orders() {
     }
   }
 
+  async function handleSyncByPhone() {
+    const input = window.prompt('رقم الهاتف (اختياري). اتركه فارغاً لمزامنة كل الطلبات القديمة:') || '';
+    try {
+      setSyncingByPhone(true);
+      const res = await orderApi.syncByPhone(input.trim() || undefined);
+      const stats = res.data || {};
+      await loadOrders();
+      toast.success(`مطابقة ${stats.matched || 0} طلب، وتحديث ${stats.updated || 0}`);
+    } catch (err) {
+      toast.error(err.message);
+    } finally {
+      setSyncingByPhone(false);
+    }
+  }
+
   function getDeliveryStatusMeta(order) {
     const status = String(order?.yalidine_status || '').trim();
     if (!status) {
@@ -455,6 +471,14 @@ export default function Orders() {
           <p className="text-gray-500 text-sm mt-1">إدارة طلبات البيع اليومية</p>
         </div>
         <div className="flex items-center gap-2">
+          <button
+            onClick={handleSyncByPhone}
+            disabled={syncingByPhone}
+            className="flex items-center gap-2 border border-blue-200 bg-blue-50 text-blue-700 px-4 py-2.5 rounded-lg hover:bg-blue-100 transition text-sm font-medium disabled:opacity-60 disabled:cursor-not-allowed"
+          >
+            <RefreshCw size={16} className={syncingByPhone ? 'animate-spin' : ''} />
+            {syncingByPhone ? 'جاري المزامنة برقم الهاتف...' : 'مزامنة الطلبات برقم الهاتف'}
+          </button>
           <button
             onClick={handleSyncOldOrders}
             disabled={syncingOldOrders}
