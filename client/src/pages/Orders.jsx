@@ -16,6 +16,7 @@ export default function Orders() {
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [dateFilter, setDateFilter] = useState('');
+  const [syncingOldOrders, setSyncingOldOrders] = useState(false);
 
   // New order state
   const [createOpen, setCreateOpen] = useState(false);
@@ -394,6 +395,20 @@ export default function Orders() {
     }
   }
 
+  async function handleSyncOldOrders() {
+    try {
+      setSyncingOldOrders(true);
+      const res = await orderApi.syncOld();
+      const stats = res.data || {};
+      await loadOrders();
+      toast.success(`تم مزامنة ${stats.synced || 0} طلب قديم وتحديث ${stats.updated || 0}`);
+    } catch (err) {
+      toast.error(err.message);
+    } finally {
+      setSyncingOldOrders(false);
+    }
+  }
+
   function getDeliveryStatusMeta(order) {
     const status = String(order?.yalidine_status || '').trim();
     if (!status) {
@@ -439,13 +454,23 @@ export default function Orders() {
           <h1 className="text-2xl font-bold text-gray-800">الطلبات</h1>
           <p className="text-gray-500 text-sm mt-1">إدارة طلبات البيع اليومية</p>
         </div>
-        <button
-          onClick={openCreate}
-          className="flex items-center gap-2 bg-primary text-white px-4 py-2.5 rounded-lg hover:bg-primary-dark transition text-sm font-medium"
-        >
-          <Plus size={18} />
-          طلب جديد
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={handleSyncOldOrders}
+            disabled={syncingOldOrders}
+            className="flex items-center gap-2 border border-gray-200 bg-white px-4 py-2.5 rounded-lg hover:bg-gray-50 transition text-sm font-medium disabled:opacity-60 disabled:cursor-not-allowed"
+          >
+            <RefreshCw size={16} className={syncingOldOrders ? 'animate-spin' : ''} />
+            {syncingOldOrders ? 'جاري مزامنة الطلبات القديمة...' : 'مزامنة الطلبات القديمة'}
+          </button>
+          <button
+            onClick={openCreate}
+            className="flex items-center gap-2 bg-primary text-white px-4 py-2.5 rounded-lg hover:bg-primary-dark transition text-sm font-medium"
+          >
+            <Plus size={18} />
+            طلب جديد
+          </button>
+        </div>
       </div>
 
       {/* Date Filter */}

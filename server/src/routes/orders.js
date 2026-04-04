@@ -65,6 +65,16 @@ router.post('/:id/sync-status', async (req, res) => {
   }
 });
 
+// POST /api/orders/sync-old - Sync all old tracked orders from Yalidine
+router.post('/sync-old', async (req, res) => {
+  try {
+    const stats = await orderService.syncOldOrdersStatuses();
+    success(res, stats);
+  } catch (err) {
+    error(res, err.message, 400);
+  }
+});
+
 // DELETE /api/orders/:id - Delete order (restores stock only if approved)
 router.delete('/:id', async (req, res) => {
   try {
