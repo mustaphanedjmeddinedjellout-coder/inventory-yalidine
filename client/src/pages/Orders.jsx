@@ -428,15 +428,15 @@ export default function Orders() {
   function getDeliveryStatusMeta(order) {
     const status = String(order?.yalidine_status || '').trim();
     if (!status) {
-      if (order?.yalidine_tracking) {
+      if (order?.yalidine_tracking || order?.order_status === 'approved') {
         return {
-          label: 'جاري التتبع',
+          label: 'En preparation',
           className: 'bg-blue-100 text-blue-700',
         };
       }
 
       return {
-        label: order?.to_wilaya_name ? 'في الانتظار' : '—',
+        label: order?.to_wilaya_name ? 'En attente d\'envoi' : '—',
         className: 'bg-yellow-100 text-yellow-700',
       };
     }
@@ -554,15 +554,16 @@ export default function Orders() {
                     <td className="px-5 py-3 font-medium">{formatCurrency(o.total_amount)} da</td>
                     <td className="px-5 py-3 text-green-600 font-medium">{formatCurrency(o.total_profit)} da</td>
                     <td className="px-5 py-3">
-                      {o.order_status === 'approved' ? (
-                        <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-green-100 text-green-700 text-xs font-medium">
-                          مؤكد
-                        </span>
-                      ) : (
-                        <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-yellow-100 text-yellow-700 text-xs font-medium">
-                          في الانتظار
-                        </span>
-                      )}
+                      {(() => {
+                        const meta = getDeliveryStatusMeta(o);
+                        if (meta.label === '—') return <span className="text-gray-300">—</span>;
+
+                        return (
+                          <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${meta.className}`}>
+                            {meta.label}
+                          </span>
+                        );
+                      })()}
                     </td>
                     <td className="px-5 py-3">
                       {(() => {
