@@ -542,11 +542,11 @@ const orderService = {
       const parcel = result[0];
       await db.execute({
         sql: `UPDATE orders SET order_status = 'approved', yalidine_tracking = ?, yalidine_status = ?, yalidine_label = ? WHERE id = ?`,
-        args: [parcel.tracking || null, parcel.state || 'submitted', parcel.label || null, id],
+        args: [parcel.tracking || null, parcel.state || parcel.status || 'En preparation', parcel.label || null, id],
       });
     } else {
       await db.execute({
-        sql: `UPDATE orders SET order_status = 'approved' WHERE id = ?`,
+        sql: `UPDATE orders SET order_status = 'approved', yalidine_status = 'En preparation' WHERE id = ?`,
         args: [id],
       });
     }
