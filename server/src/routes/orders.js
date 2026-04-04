@@ -16,7 +16,8 @@ router.get('/', async (req, res) => {
       from: req.query.from,
       to: req.query.to,
     };
-    const orders = await orderService.getAll(filters);
+    const shouldSyncYalidine = req.query.sync !== '0';
+    const orders = await orderService.getAll(filters, { syncYalidine: shouldSyncYalidine });
     success(res, orders);
   } catch (err) {
     error(res, err.message);
@@ -48,6 +49,16 @@ router.post('/', async (req, res) => {
 router.post('/:id/approve', async (req, res) => {
   try {
     const order = await orderService.approve(parseInt(req.params.id));
+    success(res, order);
+  } catch (err) {
+    error(res, err.message, 400);
+  }
+});
+
+// POST /api/orders/:id/sync-status - Sync status from Yalidine tracking API
+router.post('/:id/sync-status', async (req, res) => {
+  try {
+    const order = await orderService.syncYalidineStatus(parseInt(req.params.id));
     success(res, order);
   } catch (err) {
     error(res, err.message, 400);

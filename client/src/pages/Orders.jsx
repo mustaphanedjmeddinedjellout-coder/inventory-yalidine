@@ -7,7 +7,7 @@ import { useEffect, useRef, useState } from 'react';
 import { orderApi, productApi, yalidineApi } from '../api';
 import Modal from '../components/Modal';
 import LoadingSpinner from '../components/LoadingSpinner';
-import { Plus, Trash2, Eye, ShoppingCart, Calendar, Truck, Package } from 'lucide-react';
+import { Plus, Trash2, Eye, ShoppingCart, Calendar, Truck, Package, RefreshCw } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 export default function Orders() {
@@ -57,6 +57,7 @@ export default function Orders() {
       setLoading(true);
       const params = {};
       if (dateFilter) params.date = dateFilter;
+      params.sync = 1;
       const res = await orderApi.getAll(params);
       setOrders(res.data);
     } catch (err) {
@@ -377,6 +378,54 @@ export default function Orders() {
     }
   }
 
+  async function handleSyncStatus(id) {
+    try {
+      const res = await orderApi.syncStatus(id);
+      const updatedOrder = res.data;
+
+      setOrders((prev) => prev.map((o) => (o.id === id ? { ...o, ...updatedOrder } : o)));
+      if (viewOrder && viewOrder.id === id) {
+        setViewOrder(updatedOrder);
+      }
+
+      toast.success('تم تحديث حالة الشحن من يالدين');
+    } catch (err) {
+      toast.error(err.message);
+    }
+  }
+
+  function getDeliveryStatusMeta(order) {
+    const status = String(order?.yalidine_status || '').trim();
+    if (!status) {
+      if (order?.yalidine_tracking) {
+        return {
+          label: 'جاري التتبع',
+          className: 'bg-blue-100 text-blue-700',
+        };
+      }
+
+      return {
+        label: order?.to_wilaya_name ? 'في الانتظار' : '—',
+        className: 'bg-yellow-100 text-yellow-700',
+      };
+    }
+
+    const normalized = status
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '');
+
+    if (/(livre|delivered|success|تم التوصيل)/.test(normalized)) {
+      return { label: status, className: 'bg-green-100 text-green-700' };
+    }
+
+    if (/(echec|failed|retour|return|annule|cancel|refus)/.test(normalized)) {
+      return { label: status, className: 'bg-red-100 text-red-700' };
+    }
+
+    return { label: status, className: 'bg-blue-100 text-blue-700' };
+  }
+
   const formatCurrency = (val) =>
     new Intl.NumberFormat('en-US', { style: 'decimal', minimumFractionDigits: 2 }).format(val || 0);
 
@@ -467,17 +516,21 @@ export default function Orders() {
                       )}
                     </td>
                     <td className="px-5 py-3">
-                      {o.yalidine_tracking ? (
-                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-green-100 text-green-700 text-xs font-medium">
-                          <Truck size={12} /> {o.yalidine_tracking}
-                        </span>
-                      ) : o.to_wilaya_name ? (
-                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-yellow-100 text-yellow-700 text-xs font-medium">
-                          <Package size={12} /> في الانتظار
-                        </span>
-                      ) : (
-                        <span className="text-gray-300">—</span>
-                      )}
+                      {(() => {
+                        const meta = getDeliveryStatusMeta(o);
+                        if (meta.label === '—') return <span className="text-gray-300">—</span>;
+
+                        return (
+                          <div className="space-y-1">
+                            <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${meta.className}`}>
+                              <Package size={12} /> {meta.label}
+                            </span>
+                            {o.yalidine_tracking && (
+                              <div className="text-[11px] text-gray-500 font-mono">{o.yalidine_tracking}</div>
+                            )}
+                          </div>
+                        );
+                      })()}
                     </td>
                     <td className="px-5 py-3 text-gray-500 text-xs">
                       {new Date(o.created_at).toLocaleDateString('en-US')}
@@ -498,6 +551,15 @@ export default function Orders() {
                             title="تأكيد وإرسال"
                           >
                             <Truck size={16} />
+                          </button>
+                        )}
+                        {o.yalidine_tracking && (
+                          <button
+                            onClick={() => handleSyncStatus(o.id)}
+                            className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition"
+                            title="تحديث الحالة من يالدين"
+                          >
+                            <RefreshCw size={16} />
                           </button>
                         )}
                         <button

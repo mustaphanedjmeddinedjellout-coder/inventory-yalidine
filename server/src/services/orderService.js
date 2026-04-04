@@ -7,11 +7,48 @@ const { db } = require('../db/connection');
 const { calculateLineItem, calculateOrderTotals, generateOrderNumber } = require('../utils/calculations');
 const yalidineService = require('./yalidineService');
 
+function extractYalidineStatus(payload) {
+  if (!payload || typeof payload !== 'object') return null;
+
+  const candidates = [
+    payload.state,
+    payload.status,
+    payload.last_status,
+    payload.last_state,
+    payload.current_status,
+    payload.current_state,
+    payload?.data?.state,
+    payload?.data?.status,
+    payload?.data?.last_status,
+    payload?.data?.last_state,
+    payload?.data?.current_status,
+    payload?.data?.current_state,
+    payload?.data?.last_status?.name,
+    payload?.data?.last_state?.name,
+    payload?.data?.current_status?.name,
+    payload?.data?.current_state?.name,
+    Array.isArray(payload?.history) ? payload.history[0]?.status : null,
+    Array.isArray(payload?.history) ? payload.history[0]?.state : null,
+    Array.isArray(payload?.history) ? payload.history[0]?.label : null,
+    Array.isArray(payload?.data?.history) ? payload.data.history[0]?.status : null,
+    Array.isArray(payload?.data?.history) ? payload.data.history[0]?.state : null,
+    Array.isArray(payload?.data?.history) ? payload.data.history[0]?.label : null,
+  ];
+
+  for (const candidate of candidates) {
+    if (typeof candidate === 'string' && candidate.trim()) {
+      return candidate.trim();
+    }
+  }
+
+  return null;
+}
+
 const orderService = {
   /**
    * Get all orders with optional date filtering
    */
-  async getAll(filters = {}) {
+  async getAll(filters = {}, options = {}) {
     let query = "SELECT * FROM orders WHERE 1=1";
     const args = [];
 
@@ -30,7 +67,29 @@ const orderService = {
 
     query += ' ORDER BY created_at DESC';
     const result = await db.execute({ sql: query, args });
-    return result.rows;
+    const rows = result.rows;
+
+    if (options.syncYalidine && yalidineService.isConfigured()) {
+      await Promise.all(rows.map(async (order) => {
+        if (!order.yalidine_tracking) return;
+
+        try {
+          const trackingPayload = await yalidineService.getTracking(order.yalidine_tracking);
+          const latestStatus = extractYalidineStatus(trackingPayload);
+          if (!latestStatus || latestStatus === order.yalidine_status) return;
+
+          await db.execute({
+            sql: 'UPDATE orders SET yalidine_status = ? WHERE id = ?',
+            args: [latestStatus, order.id],
+          });
+          order.yalidine_status = latestStatus;
+        } catch (err) {
+          console.warn(`Failed to sync Yalidine status for order ${order.id}:`, err.message);
+        }
+      }));
+    }
+
+    return rows;
   },
 
   /**
@@ -44,6 +103,30 @@ const orderService = {
     const itemsResult = await db.execute({ sql: 'SELECT * FROM order_items WHERE order_id = ?', args: [id] });
     order.items = itemsResult.rows;
     return order;
+  },
+
+  /**
+   * Sync Yalidine status for a single order by id.
+   */
+  async syncYalidineStatus(id) {
+    const order = await this.getById(id);
+    if (!order) throw new Error('الطلب غير موجود');
+    if (!order.yalidine_tracking) return order;
+    if (!yalidineService.isConfigured()) {
+      throw new Error('Yalidine غير مفعّل. يرجى ضبط مفاتيح API.');
+    }
+
+    const trackingPayload = await yalidineService.getTracking(order.yalidine_tracking);
+    const latestStatus = extractYalidineStatus(trackingPayload);
+
+    if (latestStatus && latestStatus !== order.yalidine_status) {
+      await db.execute({
+        sql: 'UPDATE orders SET yalidine_status = ? WHERE id = ?',
+        args: [latestStatus, id],
+      });
+    }
+
+    return this.getById(id);
   },
 
   /**
