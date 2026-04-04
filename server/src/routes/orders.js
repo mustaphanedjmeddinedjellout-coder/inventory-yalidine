@@ -75,6 +75,16 @@ router.post('/sync-old', async (req, res) => {
   }
 });
 
+// POST /api/orders/sync-by-phone - Sync old admin orders from Yalidine by phone
+router.post('/sync-by-phone', async (req, res) => {
+  try {
+    const stats = await orderService.syncOrdersFromYalidineByPhone(req.body?.phone);
+    success(res, stats);
+  } catch (err) {
+    error(res, err.message, 400);
+  }
+});
+
 // DELETE /api/orders/:id - Delete order (restores stock only if approved)
 router.delete('/:id', async (req, res) => {
   try {

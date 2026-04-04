@@ -28,6 +28,7 @@ export const orderApi = {
   approve: (id) => api.post(`/orders/${id}/approve`),
   syncStatus: (id) => api.post(`/orders/${id}/sync-status`),
   syncOld: () => api.post('/orders/sync-old'),
+  syncByPhone: (phone) => api.post('/orders/sync-by-phone', phone ? { phone } : {}),
   delete: (id) => api.delete(`/orders/${id}`),
 };
 
