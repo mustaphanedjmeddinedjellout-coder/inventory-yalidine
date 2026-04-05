@@ -202,6 +202,232 @@ const orderService = {
   },
 
   /**
+   * Update editable order fields from admin panel.
+   */
+  async update(id, data = {}) {
+    const existing = await this.getById(id);
+    if (!existing) {
+      throw new Error('الطلب غير موجود');
+    }
+
+    const allowedFields = [
+      'firstname',
+      'familyname',
+      'contact_phone',
+      'address',
+      'to_wilaya_name',
+      'to_commune_name',
+      'is_stopdesk',
+      'notes',
+      'yalidine_price',
+      'delivery_price',
+    ];
+
+    const setParts = [];
+    const args = [];
+    const hasItemsUpdate = Array.isArray(data.items);
+    const isApproved = String(existing.order_status || '') === 'approved';
+
+    let processedItems = null;
+
+    if (hasItemsUpdate) {
+      if (data.items.length === 0) {
+        throw new Error('يجب إضافة عنصر واحد على الأقل للطلب');
+      }
+
+      processedItems = [];
+
+      for (const item of data.items) {
+        const productId = Number(item.product_id);
+        const variantId = Number(item.variant_id);
+        const quantity = Number(item.quantity);
+
+        if (!productId || !variantId || !Number.isFinite(quantity) || quantity <= 0) {
+          throw new Error('بيانات عناصر الطلب غير صالحة');
+        }
+
+        const productResult = await db.execute({
+          sql: 'SELECT id, model_name, selling_price, cost_price FROM products WHERE id = ?',
+          args: [productId],
+        });
+        if (productResult.rows.length === 0) {
+          throw new Error(`المنتج غير موجود: ${productId}`);
+        }
+        const product = productResult.rows[0];
+
+        const variantResult = await db.execute({
+          sql: 'SELECT id, product_id, color, size, quantity FROM product_variants WHERE id = ? AND product_id = ?',
+          args: [variantId, productId],
+        });
+        if (variantResult.rows.length === 0) {
+          throw new Error(`المتغير غير موجود: ${variantId}`);
+        }
+        const variant = variantResult.rows[0];
+
+        const sellingPrice = item.selling_price != null ? Number(item.selling_price) : Number(product.selling_price);
+        const costPrice = item.cost_price != null ? Number(item.cost_price) : Number(product.cost_price);
+
+        const { lineTotal, lineCost, lineProfit } = calculateLineItem(quantity, sellingPrice, costPrice);
+
+        processedItems.push({
+          product_id: product.id,
+          variant_id: variant.id,
+          product_name: product.model_name,
+          variant_info: `${variant.color} / ${variant.size}`,
+          quantity,
+          selling_price: sellingPrice,
+          cost_price: costPrice,
+          lineTotal,
+          lineCost,
+          lineProfit,
+        });
+      }
+    }
+
+    for (const field of allowedFields) {
+      if (!(field in data)) continue;
+
+      let value = data[field];
+
+      if (field === 'is_stopdesk') {
+        value = value ? 1 : 0;
+      }
+
+      if (field === 'yalidine_price' || field === 'delivery_price') {
+        if (value == null || value === '') {
+          value = null;
+        } else {
+          const num = Number(value);
+          if (Number.isNaN(num) || num < 0) {
+            throw new Error(`قيمة غير صالحة للحقل ${field}`);
+          }
+          value = num;
+        }
+      }
+
+      setParts.push(`${field} = ?`);
+      args.push(value);
+    }
+
+    if (setParts.length === 0 && !hasItemsUpdate) {
+      return existing;
+    }
+
+    await db.execute({
+      sql: `UPDATE orders SET ${setParts.join(', ')} WHERE id = ?`,
+      args: [...args, id],
+    });
+
+    if (hasItemsUpdate) {
+      const aggregateByVariant = (rows) => {
+        const map = new Map();
+        for (const row of rows) {
+          const key = Number(row.variant_id);
+          const qty = Number(row.quantity || 0);
+          map.set(key, (map.get(key) || 0) + qty);
+        }
+        return map;
+      };
+
+      const oldAgg = aggregateByVariant(existing.items || []);
+      const newAgg = aggregateByVariant(processedItems);
+
+      if (isApproved) {
+        // Revert previous stock reservation for approved orders.
+        for (const [variantId, qty] of oldAgg.entries()) {
+          await db.execute({
+            sql: `UPDATE product_variants SET quantity = quantity + ?, updated_at = datetime('now') WHERE id = ?`,
+            args: [qty, variantId],
+          });
+        }
+      }
+
+      try {
+        for (const [variantId, qty] of newAgg.entries()) {
+          const availableResult = await db.execute({
+            sql: 'SELECT quantity FROM product_variants WHERE id = ?',
+            args: [variantId],
+          });
+          if (availableResult.rows.length === 0) {
+            throw new Error(`المتغير غير موجود: ${variantId}`);
+          }
+          const available = Number(availableResult.rows[0].quantity || 0);
+          if (available < qty) {
+            throw new Error(`الكمية غير كافية لتحديث الطلب (المتوفر: ${available})`);
+          }
+        }
+
+        if (isApproved) {
+          for (const [variantId, qty] of newAgg.entries()) {
+            await db.execute({
+              sql: `UPDATE product_variants SET quantity = quantity - ?, updated_at = datetime('now') WHERE id = ?`,
+              args: [qty, variantId],
+            });
+          }
+        }
+      } catch (err) {
+        if (isApproved) {
+          // Best-effort rollback to old reservation state.
+          for (const [variantId, qty] of newAgg.entries()) {
+            await db.execute({
+              sql: `UPDATE product_variants SET quantity = quantity + ?, updated_at = datetime('now') WHERE id = ?`,
+              args: [qty, variantId],
+            });
+          }
+          for (const [variantId, qty] of oldAgg.entries()) {
+            await db.execute({
+              sql: `UPDATE product_variants SET quantity = quantity - ?, updated_at = datetime('now') WHERE id = ?`,
+              args: [qty, variantId],
+            });
+          }
+        }
+        throw err;
+      }
+
+      await db.execute({ sql: 'DELETE FROM order_items WHERE order_id = ?', args: [id] });
+      for (const pi of processedItems) {
+        await db.execute({
+          sql: `INSERT INTO order_items (order_id, product_id, variant_id, product_name, variant_info, quantity, selling_price, cost_price, line_total, line_cost, line_profit)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          args: [id, pi.product_id, pi.variant_id, pi.product_name, pi.variant_info, pi.quantity, pi.selling_price, pi.cost_price, pi.lineTotal, pi.lineCost, pi.lineProfit],
+        });
+      }
+    }
+
+    if ('delivery_price' in data || hasItemsUpdate) {
+      const totalsResult = await db.execute({
+        sql: `SELECT COALESCE(SUM(quantity), 0) AS items_count,
+                     COALESCE(SUM(line_total), 0) AS items_total,
+                     COALESCE(SUM(line_cost), 0) AS total_cost,
+                     COALESCE(SUM(line_profit), 0) AS total_profit
+              FROM order_items
+              WHERE order_id = ?`,
+        args: [id],
+      });
+      const totals = totalsResult.rows[0] || {};
+
+      const current = await db.execute({ sql: 'SELECT delivery_price FROM orders WHERE id = ?', args: [id] });
+      const deliveryPrice = Number(current.rows[0]?.delivery_price || 0);
+      const itemsTotal = Number(totals.items_total || 0);
+
+      await db.execute({
+        sql: `UPDATE orders
+              SET items_count = ?, total_amount = ?, total_cost = ?, total_profit = ?
+              WHERE id = ?`,
+        args: [
+          Number(totals.items_count || 0),
+          itemsTotal + deliveryPrice,
+          Number(totals.total_cost || 0),
+          Number(totals.total_profit || 0),
+          id,
+        ],
+      });
+    }
+
+    return this.getById(id);
+  },
+
+  /**
    * Sync Yalidine status for a single order by id.
    */
   async syncYalidineStatus(id) {

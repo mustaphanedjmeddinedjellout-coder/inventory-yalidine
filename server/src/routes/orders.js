@@ -55,6 +55,16 @@ router.post('/:id/approve', async (req, res) => {
   }
 });
 
+// POST /api/orders/:id/update - Update editable order fields
+router.post('/:id/update', async (req, res) => {
+  try {
+    const order = await orderService.update(parseInt(req.params.id), req.body || {});
+    success(res, order);
+  } catch (err) {
+    error(res, err.message, 400);
+  }
+});
+
 // POST /api/orders/:id/sync-status - Sync status from Yalidine tracking API
 router.post('/:id/sync-status', async (req, res) => {
   try {
