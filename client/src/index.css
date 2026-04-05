@@ -18,6 +18,13 @@
   --ink: #1f1b16;
 }
 
+html,
+body,
+#root {
+  max-width: 100%;
+  overflow-x: hidden;
+}
+
 body {
   font-family: 'Space Grotesk', 'Cairo', 'Noto Sans Arabic', sans-serif;
   background-color: var(--cream);
@@ -156,7 +163,7 @@ body {
   border: 1px solid rgba(0, 0, 0, 0.15);
   padding: 0.75rem 1rem;
   background: rgba(255, 255, 255, 0.8);
-  font-size: 0.85rem;
+  font-size: 16px;
 }
 
 .input-field:focus {
