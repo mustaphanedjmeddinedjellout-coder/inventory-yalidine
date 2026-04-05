@@ -1,4 +1,5 @@
 import { Link, useParams } from 'react-router-dom';
+import { Instagram, Sparkles } from 'lucide-react';
 
 export default function OrderSuccess() {
   const { id } = useParams();
@@ -17,17 +18,25 @@ export default function OrderSuccess() {
           <p className="mt-2 text-[20px] font-semibold text-ink">{id}</p>
         </div>
 
-        <div className="rounded-2xl border border-pink-200 bg-pink-50 px-5 py-4 text-right">
+        <div className="rounded-2xl border border-pink-200 bg-linear-to-br from-pink-50 to-rose-50 px-5 py-4 text-right shadow-sm">
+          <div className="mb-2 flex items-center justify-end gap-2 text-pink-800">
+            <Sparkles size={16} />
+            <p className="text-[14px] font-semibold">خليك ديما من الأوائل</p>
+          </div>
+
           <p className="text-[13px] text-pink-900 leading-relaxed">
-            تابعونا على انستغرام لمعرفة <span className="font-semibold">الوصولات الجديدة</span> وكل المعلومات والتفاصيل أولاً بأول.
+            تابعونا على انستغرام لمعرفة <span className="font-semibold">الوصولات الجديدة</span>،
+            العروض، وكل المعلومات المهمة أولاً بأول.
           </p>
+
           <a
             href={instagramUrl}
             target="_blank"
             rel="noreferrer"
-            className="mt-2 inline-flex items-center gap-1.5 text-[13px] font-semibold text-pink-700 hover:text-pink-900"
+            className="mt-3 inline-flex items-center gap-2 rounded-full bg-pink-600 px-4 py-2 text-[13px] font-semibold text-white transition hover:bg-pink-700"
           >
-            حسابنا على انستغرام
+            <Instagram size={16} />
+            تابعنا على انستغرام
           </a>
         </div>
 
