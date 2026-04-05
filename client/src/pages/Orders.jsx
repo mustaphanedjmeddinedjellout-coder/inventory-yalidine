@@ -7,7 +7,7 @@ import { useEffect, useRef, useState } from 'react';
 import { orderApi, productApi, yalidineApi } from '../api';
 import Modal from '../components/Modal';
 import LoadingSpinner from '../components/LoadingSpinner';
-import { Plus, Trash2, Eye, ShoppingCart, Calendar, Truck, Package, RefreshCw } from 'lucide-react';
+import { Plus, Trash2, Eye, ShoppingCart, Calendar, Truck, Package, RefreshCw, Pencil } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 export default function Orders() {
@@ -47,6 +47,22 @@ export default function Orders() {
   // View order state
   const [viewOrder, setViewOrder] = useState(null);
   const [viewOpen, setViewOpen] = useState(false);
+  const [editOpen, setEditOpen] = useState(false);
+  const [editSaving, setEditSaving] = useState(false);
+  const [editOrderId, setEditOrderId] = useState(null);
+  const [editForm, setEditForm] = useState({
+    firstname: '',
+    familyname: '',
+    contact_phone: '',
+    address: '',
+    to_wilaya_name: '',
+    to_commune_name: '',
+    is_stopdesk: false,
+    notes: '',
+    delivery_price: '',
+    yalidine_price: '',
+  });
+  const [editItems, setEditItems] = useState([]);
   const variantRefs = useRef({});
   const quantityRefs = useRef({});
 
@@ -150,6 +166,120 @@ export default function Orders() {
       setViewOpen(true);
     } catch (err) {
       toast.error(err.message);
+    }
+  }
+
+  async function openEdit(order) {
+    try {
+      if (products.length === 0) {
+        const productsRes = await productApi.getForOrder();
+        setProducts(productsRes.data || []);
+      }
+      const res = await orderApi.getById(order.id);
+      const o = res.data;
+      setEditOrderId(o.id);
+      setEditForm({
+        firstname: o.firstname || '',
+        familyname: o.familyname || '',
+        contact_phone: o.contact_phone || '',
+        address: o.address === '.' ? '' : (o.address || ''),
+        to_wilaya_name: o.to_wilaya_name || '',
+        to_commune_name: o.to_commune_name || '',
+        is_stopdesk: Number(o.is_stopdesk || 0) === 1,
+        notes: o.notes || '',
+        delivery_price: o.delivery_price != null ? String(o.delivery_price) : '',
+        yalidine_price: o.yalidine_price != null ? String(o.yalidine_price) : '',
+      });
+      const mappedItems = (o.items || []).map((item) => ({
+        product_id: String(item.product_id || ''),
+        variant_id: String(item.variant_id || ''),
+        quantity: Number(item.quantity || 1),
+      }));
+      setEditItems(mappedItems.length > 0 ? mappedItems : [{ product_id: '', variant_id: '', quantity: 1 }]);
+      setEditOpen(true);
+    } catch (err) {
+      toast.error(err.message);
+    }
+  }
+
+  function updateEditField(field, value) {
+    setEditForm((prev) => ({ ...prev, [field]: value }));
+  }
+
+  function addEditItem() {
+    setEditItems((prev) => [...prev, { product_id: '', variant_id: '', quantity: 1 }]);
+  }
+
+  function removeEditItem(index) {
+    setEditItems((prev) => prev.filter((_, i) => i !== index));
+  }
+
+  function updateEditItem(index, field, value) {
+    setEditItems((prev) => {
+      const next = [...prev];
+      const current = { ...next[index] };
+
+      if (field === 'product_id') {
+        current.product_id = value;
+        current.variant_id = '';
+      } else if (field === 'variant_id') {
+        current.variant_id = value;
+      } else if (field === 'quantity') {
+        current.quantity = Math.max(1, Number(value) || 1);
+      }
+
+      next[index] = current;
+      return next;
+    });
+  }
+
+  function getEditProduct(productId) {
+    return products.find((p) => String(p.id) === String(productId));
+  }
+
+  async function handleSaveEdit() {
+    if (!editOrderId) return;
+
+    const validItems = editItems
+      .filter((item) => item.product_id && item.variant_id && Number(item.quantity) > 0)
+      .map((item) => {
+        const product = getEditProduct(item.product_id);
+        return {
+          product_id: Number(item.product_id),
+          variant_id: Number(item.variant_id),
+          quantity: Number(item.quantity),
+          selling_price: getEffectivePrice(product),
+        };
+      });
+
+    if (validItems.length === 0) {
+      return toast.error('يرجى إضافة عنصر واحد على الأقل');
+    }
+
+    try {
+      setEditSaving(true);
+      await orderApi.update(editOrderId, {
+        firstname: editForm.firstname || null,
+        familyname: editForm.familyname || null,
+        contact_phone: editForm.contact_phone || null,
+        address: editForm.address ? editForm.address : '.',
+        to_wilaya_name: editForm.to_wilaya_name || null,
+        to_commune_name: editForm.to_commune_name || null,
+        is_stopdesk: editForm.is_stopdesk,
+        notes: editForm.notes || null,
+        delivery_price: editForm.delivery_price === '' ? null : Number(editForm.delivery_price),
+        yalidine_price: editForm.yalidine_price === '' ? null : Number(editForm.yalidine_price),
+        items: validItems,
+      });
+      toast.success('تم تعديل الطلب بنجاح');
+      setEditOpen(false);
+      setEditOrderId(null);
+      setEditItems([]);
+      await loadOrders();
+    } catch (err) {
+      toast.error(err.message);
+    } finally {
+      setEditSaving(false);
     }
   }
 
@@ -594,6 +724,13 @@ export default function Orders() {
                         >
                           <Eye size={16} />
                         </button>
+                        <button
+                          onClick={() => openEdit(o)}
+                          className="p-1.5 text-gray-400 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition"
+                          title="تعديل"
+                        >
+                          <Pencil size={16} />
+                        </button>
                         {o.order_status !== 'approved' && o.to_wilaya_name && (
                           <button
                             onClick={() => handleApprove(o.id)}
@@ -949,6 +1086,209 @@ export default function Orders() {
             </button>
             <button
               onClick={() => setCreateOpen(false)}
+              className="px-6 py-2.5 rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50 transition text-sm"
+            >
+              إلغاء
+            </button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Edit Order Modal */}
+      <Modal
+        isOpen={editOpen}
+        onClose={() => setEditOpen(false)}
+        title={`تعديل الطلب ${editOrderId || ''}`}
+        size="lg"
+      >
+        <div className="space-y-3">
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs text-gray-600 mb-1">الاسم الأول</label>
+              <input
+                type="text"
+                value={editForm.firstname}
+                onChange={(e) => updateEditField('firstname', e.target.value)}
+                className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm"
+              />
+            </div>
+            <div>
+              <label className="block text-xs text-gray-600 mb-1">اللقب</label>
+              <input
+                type="text"
+                value={editForm.familyname}
+                onChange={(e) => updateEditField('familyname', e.target.value)}
+                className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm"
+              />
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-xs text-gray-600 mb-1">الهاتف</label>
+            <input
+              type="tel"
+              value={editForm.contact_phone}
+              onChange={(e) => updateEditField('contact_phone', e.target.value)}
+              className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm"
+            />
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs text-gray-600 mb-1">الولاية</label>
+              <input
+                type="text"
+                value={editForm.to_wilaya_name}
+                onChange={(e) => updateEditField('to_wilaya_name', e.target.value)}
+                className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm"
+              />
+            </div>
+            <div>
+              <label className="block text-xs text-gray-600 mb-1">البلدية</label>
+              <input
+                type="text"
+                value={editForm.to_commune_name}
+                onChange={(e) => updateEditField('to_commune_name', e.target.value)}
+                className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm"
+              />
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-xs text-gray-600 mb-1">العنوان</label>
+            <input
+              type="text"
+              value={editForm.address}
+              onChange={(e) => updateEditField('address', e.target.value)}
+              className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm"
+            />
+          </div>
+
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <label className="text-xs text-gray-600">عناصر الطلب (المنتج / اللون / القياس)</label>
+              <button
+                type="button"
+                onClick={addEditItem}
+                className="text-xs text-primary hover:text-primary-dark font-medium"
+              >
+                + إضافة عنصر
+              </button>
+            </div>
+
+            <div className="space-y-2">
+              {editItems.map((item, index) => {
+                const product = getEditProduct(item.product_id);
+                const variants = product?.variants || [];
+                return (
+                  <div key={index} className="rounded-lg border border-gray-200 p-2.5 space-y-2">
+                    <div className="flex items-center gap-2">
+                      <select
+                        value={item.product_id}
+                        onChange={(e) => updateEditItem(index, 'product_id', e.target.value)}
+                        className="flex-1 px-3 py-2 rounded-lg border border-gray-200 text-sm bg-white"
+                      >
+                        <option value="">اختر المنتج</option>
+                        {products.map((p) => (
+                          <option key={p.id} value={p.id}>{p.model_name}</option>
+                        ))}
+                      </select>
+
+                      {editItems.length > 1 && (
+                        <button
+                          type="button"
+                          onClick={() => removeEditItem(index)}
+                          className="p-2 text-red-500 hover:bg-red-50 rounded-lg"
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      )}
+                    </div>
+
+                    <div className="grid grid-cols-[1fr_96px] gap-2">
+                      <select
+                        value={item.variant_id}
+                        onChange={(e) => updateEditItem(index, 'variant_id', e.target.value)}
+                        disabled={!item.product_id}
+                        className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm bg-white disabled:opacity-60"
+                      >
+                        <option value="">اختر اللون/القياس</option>
+                        {variants.map((v) => (
+                          <option key={v.id} value={v.id}>
+                            {v.color} / {v.size} — متوفر: {v.quantity}
+                          </option>
+                        ))}
+                      </select>
+
+                      <input
+                        type="number"
+                        min="1"
+                        value={item.quantity}
+                        onChange={(e) => updateEditItem(index, 'quantity', e.target.value)}
+                        className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm"
+                      />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs text-gray-600 mb-1">سعر التوصيل</label>
+              <input
+                type="number"
+                min="0"
+                step="1"
+                value={editForm.delivery_price}
+                onChange={(e) => updateEditField('delivery_price', e.target.value)}
+                className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm"
+              />
+            </div>
+            <div>
+              <label className="block text-xs text-gray-600 mb-1">سعر يالدين</label>
+              <input
+                type="number"
+                min="0"
+                step="1"
+                value={editForm.yalidine_price}
+                onChange={(e) => updateEditField('yalidine_price', e.target.value)}
+                className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm"
+              />
+            </div>
+          </div>
+
+          <label className="inline-flex items-center gap-2 text-sm text-gray-700">
+            <input
+              type="checkbox"
+              checked={editForm.is_stopdesk}
+              onChange={(e) => updateEditField('is_stopdesk', e.target.checked)}
+              className="rounded border-gray-300"
+            />
+            Stop Desk
+          </label>
+
+          <div>
+            <label className="block text-xs text-gray-600 mb-1">ملاحظات</label>
+            <textarea
+              rows={3}
+              value={editForm.notes}
+              onChange={(e) => updateEditField('notes', e.target.value)}
+              className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm resize-none"
+            />
+          </div>
+
+          <div className="flex items-center gap-3 pt-2">
+            <button
+              onClick={handleSaveEdit}
+              disabled={editSaving}
+              className="flex-1 bg-primary text-white py-2.5 rounded-lg hover:bg-primary-dark transition font-medium text-sm disabled:opacity-50"
+            >
+              {editSaving ? 'جاري الحفظ...' : 'حفظ التعديلات'}
+            </button>
+            <button
+              onClick={() => setEditOpen(false)}
               className="px-6 py-2.5 rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50 transition text-sm"
             >
               إلغاء

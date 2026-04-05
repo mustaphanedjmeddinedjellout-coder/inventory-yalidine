@@ -25,6 +25,7 @@ export const orderApi = {
   getAll: (params) => api.get('/orders', { params }),
   getById: (id) => api.get(`/orders/${id}`),
   create: (data) => api.post('/orders', data),
+  update: (id, data) => api.post(`/orders/${id}/update`, data),
   approve: (id) => api.post(`/orders/${id}/approve`),
   syncStatus: (id) => api.post(`/orders/${id}/sync-status`),
   syncOld: () => api.post('/orders/sync-old'),
