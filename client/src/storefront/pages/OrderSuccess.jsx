@@ -1,5 +1,5 @@
 import { Link, useParams } from 'react-router-dom';
-import { Instagram, Sparkles } from 'lucide-react';
+import { Instagram } from 'lucide-react';
 
 export default function OrderSuccess() {
   const { id } = useParams();
@@ -7,7 +7,7 @@ export default function OrderSuccess() {
 
   return (
     <div className="container-bleed py-20 text-center">
-      <div className="mx-auto max-w-md space-y-6">
+      <div className="mx-auto max-w-lg space-y-6">
         <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-emerald-100">
           <span className="text-2xl">✓</span>
         </div>
@@ -18,26 +18,25 @@ export default function OrderSuccess() {
           <p className="mt-2 text-[20px] font-semibold text-ink">{id}</p>
         </div>
 
-        <div className="rounded-2xl border border-pink-200 bg-linear-to-br from-pink-50 to-rose-50 px-5 py-4 text-right shadow-sm">
-          <div className="mb-2 flex items-center justify-end gap-2 text-pink-800">
-            <Sparkles size={16} />
-            <p className="text-[14px] font-semibold">خليك ديما من الأوائل</p>
-          </div>
-
-          <p className="text-[13px] text-pink-900 leading-relaxed">
-            تابعونا على انستغرام لمعرفة <span className="font-semibold">الوصولات الجديدة</span>،
-            العروض، وكل المعلومات المهمة أولاً بأول.
+        <div className="rounded-2xl border border-pink-200 bg-pink-50/70 px-6 py-5 text-right">
+          <p className="text-[30px] leading-none text-pink-300/70">"</p>
+          <p className="-mt-3 text-[14px] leading-7 text-pink-900">
+            تابعونا على إنستغرام لمعرفة <span className="font-semibold">الوصولات الجديدة</span>
+            <br />
+            وكل المعلومات والتفاصيل أولاً بأول.
           </p>
 
-          <a
-            href={instagramUrl}
-            target="_blank"
-            rel="noreferrer"
-            className="mt-3 inline-flex items-center gap-2 rounded-full bg-pink-600 px-4 py-2 text-[13px] font-semibold text-white transition hover:bg-pink-700"
-          >
-            <Instagram size={16} />
-            تابعنا على انستغرام
-          </a>
+          <div className="mt-4 flex justify-end">
+            <a
+              href={instagramUrl}
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex items-center gap-2 rounded-full border border-pink-200 bg-white px-4 py-2 text-[13px] font-semibold text-pink-700 transition hover:bg-pink-100"
+            >
+              <Instagram size={16} />
+              حسابنا على إنستغرام
+            </a>
+          </div>
         </div>
 
         <Link to="/" className="btn-primary inline-flex px-8">متابعة التسوق</Link>
