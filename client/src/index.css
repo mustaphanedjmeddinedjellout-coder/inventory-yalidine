@@ -200,6 +200,129 @@ body {
   transform: translateY(-1px);
 }
 
+/* ─── Trust Strip ─── */
+.trust-strip {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  border-radius: 1rem;
+  background: rgba(255, 255, 255, 0.55);
+  overflow: hidden;
+}
+
+.trust-strip__item {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  padding: 0.7rem 1rem;
+}
+
+.trust-strip__item + .trust-strip__item {
+  border-top: 1px solid rgba(0, 0, 0, 0.06);
+}
+
+.trust-strip__icon {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  border-radius: 0.5rem;
+  background: rgba(0, 0, 0, 0.04);
+  color: rgba(0, 0, 0, 0.55);
+}
+
+.trust-strip__label {
+  font-size: 0.78rem;
+  color: rgba(0, 0, 0, 0.6);
+  letter-spacing: 0.01em;
+}
+
+/* ─── Social Proof ─── */
+.social-proof {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin-top: 0.5rem;
+}
+
+.social-proof__stars {
+  display: inline-flex;
+  gap: 1px;
+  font-size: 0.8rem;
+  line-height: 1;
+}
+
+.social-proof__star--full {
+  color: #c9a84c;
+}
+
+.social-proof__star--half {
+  color: #c9a84c;
+  opacity: 0.55;
+}
+
+.social-proof__star--empty {
+  color: rgba(0, 0, 0, 0.15);
+}
+
+.social-proof__text {
+  font-size: 0.7rem;
+  color: rgba(0, 0, 0, 0.4);
+  letter-spacing: 0.02em;
+}
+
+/* ─── CTA Enhancement ─── */
+.btn-cta-main {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  padding: 1rem 1.6rem;
+  border-radius: 999px;
+  background: #111;
+  color: #fff;
+  font-size: 0.82rem;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  border: none;
+  cursor: pointer;
+  transition: transform 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.btn-cta-main:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.18);
+  background: #222;
+}
+
+.btn-cta-main:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* On mobile, make the fixed CTA more prominent */
+@media (max-width: 639px) {
+  .btn-cta-main.btn-cta-fixed {
+    position: fixed;
+    bottom: calc(env(safe-area-inset-bottom) + 16px);
+    left: 16px;
+    right: 16px;
+    z-index: 40;
+    box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.12);
+  }
+}
+
+@media (min-width: 640px) {
+  .btn-cta-main.btn-cta-fixed {
+    position: static;
+  }
+}
+
 /* RTL support for recharts */
 .recharts-wrapper {
   direction: ltr;

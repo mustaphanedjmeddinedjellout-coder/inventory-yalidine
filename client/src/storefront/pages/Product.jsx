@@ -7,6 +7,8 @@ import QuantityPicker from '../components/QuantityPicker';
 import { useCart } from '../cart-context';
 import SmartImage from '../components/SmartImage';
 import ProductCard from '../components/ProductCard';
+import TrustStrip from '../components/TrustStrip';
+import SocialProof from '../components/SocialProof';
 
 function normalizeText(value) {
   return String(value || '').trim().toLowerCase();
@@ -393,6 +395,7 @@ export default function Product() {
               <p className="text-[16px] text-black/60">{formatDzd(effectivePrice)}</p>
               {promotionPrice ? <p className="text-[13px] text-black/35 line-through">{formatDzd(product.selling_price)}</p> : null}
             </div>
+            <SocialProof rating={4.8} orders={120} />
           </div>
 
           <div className="space-y-4">
@@ -466,27 +469,25 @@ export default function Product() {
             </div>
           </div>
 
+          <TrustStrip />
+
           <button
             type="button"
-            className="btn-primary fixed bottom-[calc(env(safe-area-inset-bottom)+16px)] left-4 right-4 z-40 sm:static sm:left-auto sm:right-auto sm:bottom-auto sm:w-full"
+            className="btn-cta-main btn-cta-fixed"
             disabled={!selectedVariant || maxQuantity <= 0}
             onClick={onAdd}
           >
-            أضف إلى السلة
+            اطلب الآن – الدفع عند الاستلام
           </button>
-
-          <p className="text-[12px] text-black/40">
-            Inventory updates in real time. Orders placed here immediately reduce stock in the admin.
-          </p>
         </div>
       </div>
 
       {suggestedProducts.length > 0 && (
         <section className="mt-16 border-t border-black/10 pt-10">
           <div className="mb-6 flex items-center justify-between">
-            <h2 className="section-heading">Suggested for you</h2>
+            <h2 className="section-heading">قد يعجبك أيضاً</h2>
             <Link to="/" className="text-[11px] uppercase tracking-[0.3em] text-black/40">
-              More products
+              المزيد
             </Link>
           </div>
           <div className="grid grid-cols-2 gap-x-4 gap-y-8 sm:grid-cols-3">
