@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Products Page
  * Full CRUD for products with variant management.
  */
@@ -19,6 +19,7 @@ const emptyProduct = {
   selling_price: '',
   promotion_price: '',
   cost_price: '',
+  description: '',
   image: '',
   variants: [{ color: '', size: '', quantity: 0, image: '' }],
 };
@@ -88,6 +89,7 @@ export default function Products() {
       selling_price: product.selling_price,
       promotion_price: product.promotion_price ?? '',
       cost_price: product.cost_price,
+      description: product.description || '',
       image: product.image || '',
       variants: product.variants.length > 0 ? product.variants.map((v) => ({ ...v })) : [{ color: '', size: '', quantity: 0, image: '' }],
     });
@@ -487,6 +489,18 @@ export default function Products() {
               الربح المتوقع: <strong>{formatCurrency(((form.promotion_price && Number(form.promotion_price) > 0) ? Number(form.promotion_price) : Number(form.selling_price)) - Number(form.cost_price))} da</strong> لكل قطعة
             </div>
           )}
+
+          {/* Description */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">وصف المنتج</label>
+            <textarea
+              value={form.description}
+              onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
+              rows={3}
+              className="w-full px-3 py-2.5 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary resize-y"
+              placeholder="وصف مختصر يظهر في صفحة المنتج للعملاء (اختياري)"
+            />
+          </div>
 
           {/* Variants */}
           <div>

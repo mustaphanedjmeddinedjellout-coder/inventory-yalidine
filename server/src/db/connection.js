@@ -41,6 +41,7 @@ async function initializeDatabase() {
       selling_price REAL NOT NULL CHECK(selling_price >= 0),
       promotion_price REAL CHECK(promotion_price >= 0),
       cost_price REAL NOT NULL CHECK(cost_price >= 0),
+      description TEXT,
       image TEXT,
       created_at TEXT DEFAULT (datetime('now')),
       updated_at TEXT DEFAULT (datetime('now'))
@@ -141,6 +142,9 @@ async function setupDatabase() {
   const productCols = productColsResult.rows.map(r => r.name);
   if (!productCols.includes('promotion_price')) {
     await db.execute('ALTER TABLE products ADD COLUMN promotion_price REAL');
+  }
+  if (!productCols.includes('description')) {
+    await db.execute('ALTER TABLE products ADD COLUMN description TEXT');
   }
 
   // Auto-seed if empty
