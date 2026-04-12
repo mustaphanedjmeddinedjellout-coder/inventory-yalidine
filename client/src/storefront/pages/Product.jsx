@@ -398,6 +398,15 @@ export default function Product() {
             <SocialProof rating={4.8} orders={120} />
           </div>
 
+          {product.description && (
+            <div>
+              <p className="text-[11px] uppercase tracking-[0.3em] text-black/40">الوصف</p>
+              <p className="mt-2 text-[13px] leading-relaxed text-black/55" style={{ whiteSpace: 'pre-line' }}>
+                {product.description}
+              </p>
+            </div>
+          )}
+
           <div className="space-y-4">
             <div>
               <p className="text-[11px] uppercase tracking-[0.3em] text-black/40">اللون</p>
