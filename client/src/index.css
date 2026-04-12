@@ -371,7 +371,7 @@ body {
 .reviews-media-wrapper {
   position: relative;
   width: 100%;
-  aspect-ratio: 9 / 16;
+  aspect-ratio: 16 / 9;
   border-radius: 0.75rem;
   overflow: hidden;
   background: rgba(0, 0, 0, 0.04);
