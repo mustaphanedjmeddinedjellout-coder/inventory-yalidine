@@ -5,6 +5,7 @@ import Dashboard from './pages/Dashboard';
 import Products from './pages/Products';
 import Orders from './pages/Orders';
 import Analytics from './pages/Analytics';
+import Reviews from './pages/Reviews';
 import StorefrontLayout from './storefront/StorefrontLayout';
 import Home from './storefront/pages/Home';
 import Category from './storefront/pages/Category';
@@ -93,6 +94,7 @@ function App() {
             <Route path="products" element={<Products />} />
             <Route path="orders" element={<Orders />} />
             <Route path="analytics" element={<Analytics />} />
+            <Route path="reviews" element={<Reviews />} />
           </Route>
         </Routes>
       </CartProvider>

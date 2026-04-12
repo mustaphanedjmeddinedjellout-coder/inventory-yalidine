@@ -52,3 +52,7 @@ export function fetchCenters({ wilayaId, communeId }) {
   if (communeId) params.set('commune_id', communeId);
   return request(`/api/yalidine/centers?${params.toString()}`);
 }
+
+export function fetchReviewMedia() {
+  return request('/api/reviews');
+}

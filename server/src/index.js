@@ -67,6 +67,7 @@ app.use('/api/analytics', require('./routes/analytics'));
 app.use('/api/yalidine', require('./routes/yalidine'));
 app.use('/api/store', require('./routes/store'));
 app.use('/api/uploads', require('./routes/uploads'));
+app.use('/api/reviews', require('./routes/reviews'));
 
 // Health check
 app.get('/api/health', (req, res) => {

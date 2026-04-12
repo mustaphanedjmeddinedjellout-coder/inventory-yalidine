@@ -1,36 +1,41 @@
 /**
  * CustomerReviews — Auto-scrolling carousel of customer review media.
+ * Fetches media from the API (managed via admin panel).
  * Supports images, GIFs, and looping videos with lazy loading.
  * Swipeable on mobile, auto-advances every 4 seconds.
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-
-/**
- * Replace these placeholders with your actual media.
- * Each entry: { type: 'image' | 'video', src: '/path/to/file', alt?: string }
- */
-const REVIEW_MEDIA = [
-  { type: 'image', src: '/reviews/review-1.webp', alt: 'Avis client 1' },
-  { type: 'image', src: '/reviews/review-2.webp', alt: 'Avis client 2' },
-  { type: 'image', src: '/reviews/review-3.webp', alt: 'Avis client 3' },
-  { type: 'image', src: '/reviews/review-4.webp', alt: 'Avis client 4' },
-  { type: 'image', src: '/reviews/review-5.webp', alt: 'Avis client 5' },
-  { type: 'image', src: '/reviews/review-6.webp', alt: 'Avis client 6' },
-];
+import { fetchReviewMedia } from '../api';
+import { resolveImageUrl } from '../utils';
 
 const AUTO_INTERVAL = 4000;
 const SWIPE_THRESHOLD = 40;
 
-export default function CustomerReviews({ media = REVIEW_MEDIA }) {
+export default function CustomerReviews() {
+  const [media, setMedia] = useState([]);
   const [active, setActive] = useState(0);
   const [paused, setPaused] = useState(false);
   const touchRef = useRef({ x: 0, y: 0 });
   const timerRef = useRef(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetchReviewMedia()
+      .then((data) => {
+        if (!cancelled && Array.isArray(data)) {
+          setMedia(data);
+        }
+      })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, []);
+
   const total = media.length;
 
   const goTo = useCallback(
     (index) => {
+      if (total <= 0) return;
       setActive((index + total) % total);
     },
     [total],
@@ -71,7 +76,6 @@ export default function CustomerReviews({ media = REVIEW_MEDIA }) {
 
   if (!total) return null;
 
-  // Show 1 on mobile, 3 on desktop via CSS grid
   return (
     <section className="reviews-section">
       <div className="reviews-header">
@@ -91,11 +95,11 @@ export default function CustomerReviews({ media = REVIEW_MEDIA }) {
           style={{ transform: `translateX(-${active * 100}%)` }}
         >
           {media.map((item, idx) => (
-            <div key={idx} className="reviews-slide">
+            <div key={item.id || idx} className="reviews-slide">
               <div className="reviews-media-wrapper">
-                {item.type === 'video' ? (
+                {item.media_type === 'video' ? (
                   <video
-                    src={item.src}
+                    src={resolveImageUrl(item.src)}
                     autoPlay
                     loop
                     muted
@@ -105,7 +109,7 @@ export default function CustomerReviews({ media = REVIEW_MEDIA }) {
                   />
                 ) : (
                   <img
-                    src={item.src}
+                    src={resolveImageUrl(item.src)}
                     alt={item.alt || `Avis client ${idx + 1}`}
                     loading="lazy"
                     decoding="async"
@@ -147,9 +151,9 @@ export default function CustomerReviews({ media = REVIEW_MEDIA }) {
       {/* Dot indicators */}
       {total > 1 && (
         <div className="reviews-dots">
-          {media.map((_, idx) => (
+          {media.map((item, idx) => (
             <button
-              key={idx}
+              key={item.id || idx}
               type="button"
               aria-label={`Go to review ${idx + 1}`}
               onClick={() => goTo(idx)}

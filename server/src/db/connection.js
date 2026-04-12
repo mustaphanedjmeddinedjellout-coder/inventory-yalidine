@@ -106,6 +106,15 @@ async function initializeDatabase() {
     CREATE INDEX IF NOT EXISTS idx_order_items_order_id ON order_items(order_id);
     CREATE INDEX IF NOT EXISTS idx_order_items_product_id ON order_items(product_id);
     CREATE INDEX IF NOT EXISTS idx_product_variants_product_id ON product_variants(product_id);
+
+    CREATE TABLE IF NOT EXISTS review_media (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      media_type TEXT NOT NULL DEFAULT 'image' CHECK(media_type IN ('image', 'video')),
+      src TEXT NOT NULL,
+      alt TEXT,
+      sort_order INTEGER NOT NULL DEFAULT 0,
+      created_at TEXT DEFAULT (datetime('now'))
+    );
   `);
 }
 
