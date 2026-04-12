@@ -9,6 +9,7 @@ import SmartImage from '../components/SmartImage';
 import ProductCard from '../components/ProductCard';
 import TrustStrip from '../components/TrustStrip';
 import SocialProof from '../components/SocialProof';
+import CustomerReviews from '../components/CustomerReviews';
 
 function normalizeText(value) {
   return String(value || '').trim().toLowerCase();
@@ -506,6 +507,8 @@ export default function Product() {
           </div>
         </section>
       )}
+
+      <CustomerReviews />
     </div>
   );
 }
