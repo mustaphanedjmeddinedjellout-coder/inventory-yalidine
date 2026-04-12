@@ -48,3 +48,10 @@ export const yalidineApi = {
   getTracking: (tracking) => api.get(`/yalidine/tracking/${tracking}`),
   getStatus: () => api.get('/yalidine/status'),
 };
+
+export const reviewApi = {
+  getAll: () => api.get('/reviews'),
+  create: (data) => api.post('/reviews', data),
+  update: (id, data) => api.put(`/reviews/${id}`, data),
+  delete: (id) => api.delete(`/reviews/${id}`),
+};

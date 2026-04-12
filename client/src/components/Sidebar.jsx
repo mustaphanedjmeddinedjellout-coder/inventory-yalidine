@@ -1,5 +1,5 @@
 import { NavLink } from 'react-router-dom';
-import { LayoutDashboard, Package, ShoppingCart, BarChart3, Menu, X } from 'lucide-react';
+import { LayoutDashboard, Package, ShoppingCart, BarChart3, Star, Menu, X } from 'lucide-react';
 import { useState } from 'react';
 
 const links = [
@@ -7,6 +7,7 @@ const links = [
   { to: '/admin/products', label: 'المنتجات', icon: Package },
   { to: '/admin/orders', label: 'الطلبات', icon: ShoppingCart },
   { to: '/admin/analytics', label: 'التحليلات', icon: BarChart3 },
+  { to: '/admin/reviews', label: 'آراء العملاء', icon: Star },
 ];
 
 export default function Sidebar() {
