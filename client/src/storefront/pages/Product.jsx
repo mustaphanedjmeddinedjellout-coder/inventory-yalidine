@@ -335,7 +335,7 @@ export default function Product() {
   return (
     <div className="container-bleed py-12 pb-32 sm:pb-12">
       <div className="grid gap-10 lg:grid-cols-2">
-        <div className="relative mx-auto aspect-9/16 w-full max-w-md overflow-hidden bg-[#efeae2]">
+        <div className="relative mx-auto aspect-16/9 w-full overflow-hidden bg-[#efeae2]">
           <div
             className={`h-full w-full ${isDragging ? '' : 'transition-transform duration-300 ease-out'}`}
             style={{ transform: `translateX(${dragOffsetX}px)` }}
