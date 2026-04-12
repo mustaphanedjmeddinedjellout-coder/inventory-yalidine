@@ -371,7 +371,7 @@ body {
 .reviews-media-wrapper {
   position: relative;
   width: 100%;
-  aspect-ratio: 4 / 5;
+  aspect-ratio: 9 / 16;
   border-radius: 0.75rem;
   overflow: hidden;
   background: rgba(0, 0, 0, 0.04);
@@ -447,10 +447,6 @@ body {
 @media (min-width: 640px) {
   .reviews-slide {
     flex: 0 0 50%;
-  }
-
-  .reviews-media-wrapper {
-    aspect-ratio: 3 / 4;
   }
 }
 
