@@ -258,17 +258,15 @@ export default function Product() {
     const pool = catalog.filter((item) => String(item?.id || '') !== currentId);
     const pickedIds = new Set();
 
-    const linenMatch = pool.find((item) => {
-      const category = normalizeText(item?.category);
-      const name = normalizeText(item?.model_name);
-      return category.includes('pantalon lin') || name.includes('pantalon lin');
-    });
+    const forcedId = '22';
+    const forcedMatch = pool.find((item) => String(item?.id || '') === forcedId);
 
     const picks = [];
-    if (linenMatch) {
-      picks.push(linenMatch);
-      pickedIds.add(linenMatch.id);
+    if (forcedMatch) {
+      picks.push(forcedMatch);
+      pickedIds.add(forcedMatch.id);
     }
+
 
     const groups = [
       {
