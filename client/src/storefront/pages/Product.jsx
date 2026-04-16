@@ -335,7 +335,7 @@ export default function Product() {
   return (
     <div className="container-bleed py-12 pb-32 sm:pb-12">
       <div className="grid gap-10 lg:grid-cols-2">
-        <div className="relative mx-auto aspect-3/4 w-full max-w-115 overflow-hidden bg-[#efeae2]">
+        <div className="relative mx-auto aspect-[4/5] w-full max-w-115 overflow-hidden bg-[#efeae2] max-h-[60vh] sm:aspect-3/4 sm:max-h-none">
           <div
             className={`h-full w-full ${isDragging ? '' : 'transition-transform duration-300 ease-out'}`}
             style={{ transform: `translateX(${dragOffsetX}px)` }}
@@ -388,7 +388,7 @@ export default function Product() {
           )}
         </div>
 
-        <div className="space-y-6">
+        <div className="space-y-5">
           <div>
             <p className="text-[11px] uppercase tracking-[0.3em] text-black/40">المخزون المتاح</p>
             <h1 className="text-3xl font-display text-ink mt-3">{product.model_name}</h1>
@@ -396,17 +396,11 @@ export default function Product() {
               <p className="text-[16px] text-black/60">{formatDzd(effectivePrice)}</p>
               {promotionPrice ? <p className="text-[13px] text-black/35 line-through">{formatDzd(product.selling_price)}</p> : null}
             </div>
-            <SocialProof rating={4.8} orders={120} />
           </div>
 
-          {product.description && (
-            <div>
-              <p className="text-[11px] uppercase tracking-[0.3em] text-black/40">الوصف</p>
-              <p className="mt-2 text-[13px] leading-relaxed text-black/55" style={{ whiteSpace: 'pre-line' }}>
-                {product.description}
-              </p>
-            </div>
-          )}
+          <TrustStrip />
+
+          <SocialProof rating={4.8} orders={120} />
 
           <div className="space-y-4">
             <div>
@@ -479,16 +473,26 @@ export default function Product() {
             </div>
           </div>
 
-          <TrustStrip />
+          <div className="space-y-2">
+            <button
+              type="button"
+              className="btn-cta-main"
+              disabled={!selectedVariant || maxQuantity <= 0}
+              onClick={onAdd}
+            >
+              Commander maintenant
+            </button>
+            <p className="text-[12px] font-semibold text-black/60">🔥 Stock limité aujourd’hui</p>
+          </div>
 
-          <button
-            type="button"
-            className="btn-cta-main btn-cta-fixed"
-            disabled={!selectedVariant || maxQuantity <= 0}
-            onClick={onAdd}
-          >
-            اطلب الآن – الدفع عند الاستلام
-          </button>
+          {product.description && (
+            <div>
+              <p className="text-[11px] uppercase tracking-[0.3em] text-black/40">الوصف</p>
+              <p className="mt-2 text-[13px] leading-relaxed text-black/55" style={{ whiteSpace: 'pre-line' }}>
+                {product.description}
+              </p>
+            </div>
+          )}
         </div>
       </div>
 
