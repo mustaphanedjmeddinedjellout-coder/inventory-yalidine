@@ -333,9 +333,9 @@ export default function Product() {
   }
 
   return (
-    <div className="container-bleed py-12 pb-32 sm:pb-12">
-      <div className="grid gap-10 lg:grid-cols-2">
-        <div className="relative mx-auto aspect-[4/5] w-full max-w-115 overflow-hidden bg-[#efeae2] max-h-[60vh] sm:aspect-3/4 sm:max-h-none">
+    <div className="container-bleed py-8 pb-32 sm:pb-12">
+      <div className="grid gap-8 lg:grid-cols-2">
+        <div className="relative mx-auto aspect-[4/5] w-full max-w-115 overflow-hidden bg-[#efeae2] max-h-[52vh] sm:aspect-3/4 sm:max-h-none">
           <div
             className={`h-full w-full ${isDragging ? '' : 'transition-transform duration-300 ease-out'}`}
             style={{ transform: `translateX(${dragOffsetX}px)` }}
@@ -388,7 +388,7 @@ export default function Product() {
           )}
         </div>
 
-        <div className="space-y-5">
+        <div className="space-y-4">
           <div>
             <p className="text-[11px] uppercase tracking-[0.3em] text-black/40">المخزون المتاح</p>
             <h1 className="text-3xl font-display text-ink mt-3">{product.model_name}</h1>
@@ -476,11 +476,11 @@ export default function Product() {
           <div className="space-y-2">
             <button
               type="button"
-              className="btn-cta-main"
+              className="btn-cta-main btn-cta-fixed"
               disabled={!selectedVariant || maxQuantity <= 0}
               onClick={onAdd}
             >
-              Commander maintenant
+              اطلب الآن - الدفع عند الاستلام
             </button>
             <p className="text-[12px] font-semibold text-black/60">🔥 Stock limité aujourd’hui</p>
           </div>
