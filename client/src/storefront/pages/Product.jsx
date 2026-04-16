@@ -258,6 +258,18 @@ export default function Product() {
     const pool = catalog.filter((item) => String(item?.id || '') !== currentId);
     const pickedIds = new Set();
 
+    const linenMatch = pool.find((item) => {
+      const category = normalizeText(item?.category);
+      const name = normalizeText(item?.model_name);
+      return category.includes('pantalon lin') || name.includes('pantalon lin');
+    });
+
+    const picks = [];
+    if (linenMatch) {
+      picks.push(linenMatch);
+      pickedIds.add(linenMatch.id);
+    }
+
     const groups = [
       {
         key: 'tshirt',
@@ -285,7 +297,6 @@ export default function Product() {
       },
     ];
 
-    const picks = [];
     function pickRandom(list) {
       if (!list.length) return null;
       const index = Math.floor(Math.random() * list.length);
