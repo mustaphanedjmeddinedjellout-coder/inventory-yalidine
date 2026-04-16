@@ -356,14 +356,14 @@ export default function Product() {
 
           {swipableColors.length > 1 && (
             <div className="pointer-events-none absolute inset-x-0 bottom-4 z-10 flex items-center justify-center px-4">
-              <div className="pointer-events-auto flex items-center gap-3 rounded-full border border-white/40 bg-black/35 px-2 py-2 text-white shadow-[0_10px_30px_rgba(0,0,0,0.25)] backdrop-blur-md">
+              <div className="pointer-events-auto flex items-center gap-2 rounded-full border border-white/25 bg-black/20 px-2 py-1.5 text-white shadow-[0_8px_24px_rgba(0,0,0,0.18)] backdrop-blur-md">
                 <button
                   type="button"
                   aria-label="Previous color"
                   onClick={() => goToRelativeColor(-1)}
-                  className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-white/35 bg-white/15 transition hover:bg-white/30"
+                  className="inline-flex h-7 w-7 items-center justify-center rounded-full border border-white/25 bg-white/10 text-white/80 transition hover:bg-white/20"
                 >
-                  <ChevronLeft size={16} />
+                  <ChevronLeft size={14} />
                 </button>
 
                 <div className="flex items-center gap-1.5">
@@ -379,9 +379,9 @@ export default function Product() {
                   type="button"
                   aria-label="Next color"
                   onClick={() => goToRelativeColor(1)}
-                  className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-white/35 bg-white/15 transition hover:bg-white/30"
+                  className="inline-flex h-7 w-7 items-center justify-center rounded-full border border-white/25 bg-white/10 text-white/80 transition hover:bg-white/20"
                 >
-                  <ChevronRight size={16} />
+                  <ChevronRight size={14} />
                 </button>
               </div>
             </div>
