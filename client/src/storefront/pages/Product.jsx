@@ -355,18 +355,27 @@ export default function Product() {
           </div>
 
           {swipableColors.length > 1 && (
-            <div className="pointer-events-none absolute inset-x-0 bottom-4 z-10 flex items-center justify-center px-4">
-              <div className="pointer-events-auto flex items-center gap-2 rounded-full border border-white/25 bg-black/20 px-2 py-1.5 text-white shadow-[0_8px_24px_rgba(0,0,0,0.18)] backdrop-blur-md">
-                <button
-                  type="button"
-                  aria-label="Previous color"
-                  onClick={() => goToRelativeColor(-1)}
-                  className="inline-flex h-7 w-7 items-center justify-center rounded-full border border-white/25 bg-white/10 text-white/80 transition hover:bg-white/20"
-                >
-                  <ChevronLeft size={14} />
-                </button>
+            <>
+              <button
+                type="button"
+                aria-label="Previous color"
+                onClick={() => goToRelativeColor(-1)}
+                className="pointer-events-auto absolute left-3 top-1/2 z-10 inline-flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-full border border-white/25 bg-black/15 text-white/80 shadow-[0_8px_24px_rgba(0,0,0,0.18)] backdrop-blur-md transition hover:bg-black/25"
+              >
+                <ChevronLeft size={14} />
+              </button>
 
-                <div className="flex items-center gap-1.5">
+              <button
+                type="button"
+                aria-label="Next color"
+                onClick={() => goToRelativeColor(1)}
+                className="pointer-events-auto absolute right-3 top-1/2 z-10 inline-flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-full border border-white/25 bg-black/15 text-white/80 shadow-[0_8px_24px_rgba(0,0,0,0.18)] backdrop-blur-md transition hover:bg-black/25"
+              >
+                <ChevronRight size={14} />
+              </button>
+
+              <div className="pointer-events-none absolute inset-x-0 bottom-4 z-10 flex items-center justify-center">
+                <div className="flex items-center gap-1.5 rounded-full bg-black/10 px-2 py-1 backdrop-blur-sm">
                   {swipableColors.map((color, idx) => (
                     <span
                       key={color.value}
@@ -374,17 +383,8 @@ export default function Product() {
                     />
                   ))}
                 </div>
-
-                <button
-                  type="button"
-                  aria-label="Next color"
-                  onClick={() => goToRelativeColor(1)}
-                  className="inline-flex h-7 w-7 items-center justify-center rounded-full border border-white/25 bg-white/10 text-white/80 transition hover:bg-white/20"
-                >
-                  <ChevronRight size={14} />
-                </button>
               </div>
-            </div>
+            </>
           )}
         </div>
 
