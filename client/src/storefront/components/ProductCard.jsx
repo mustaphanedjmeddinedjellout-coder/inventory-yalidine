@@ -23,11 +23,15 @@ export default function ProductCard({ product }) {
             className="h-full w-full object-cover transition-transform duration-700 ease-out group-hover:scale-[1.06]"
           />
           <div className="absolute inset-x-0 bottom-0 h-24 bg-linear-to-t from-black/20 to-transparent opacity-0 transition-opacity duration-500 group-hover:opacity-100" />
-          {promotionPrice ? (
-            <span className="absolute right-2 top-2 rounded bg-red-600 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider text-white">
-              Promo
-            </span>
-          ) : null}
+          {promotionPrice ? (() => {
+            const pct = Math.round((1 - promotionPrice / product.selling_price) * 100);
+            return (
+              <span className="promo-badge">
+                <span className="promo-badge__pct">-{pct}%</span>
+                Promo
+              </span>
+            );
+          })() : null}
           {totalStock === 0 && (
             <div className="absolute inset-0 flex items-center justify-center bg-white/70 backdrop-blur-[2px]">
               <span className="rounded-full bg-black/80 px-3 py-1 text-[10px] font-semibold uppercase tracking-wider text-white">
