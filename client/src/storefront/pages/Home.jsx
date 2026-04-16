@@ -85,7 +85,7 @@ export default function Home() {
                   <h2 className="section-heading">T-Shirts</h2>
                   <Link to="/shop/tshirts" className="text-[11px] uppercase tracking-[0.3em] text-black/40">View all</Link>
                 </div>
-                <div className="grid grid-cols-2 gap-x-4 gap-y-8 sm:grid-cols-3 lg:grid-cols-4">
+                <div className="grid grid-cols-3 gap-x-4 gap-y-8 sm:grid-cols-3 lg:grid-cols-4">
                   {tshirts.map((product) => (
                     <ProductCard key={product.id} product={product} />
                   ))}
