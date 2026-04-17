@@ -3,7 +3,7 @@
  * Create and manage orders with product/variant selection.
  * Price snapshots are captured at order creation time.
  */
-import { useEffect, useEffectEvent, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { orderApi, productApi, yalidineApi } from '../api';
 import Modal from '../components/Modal';
 import LoadingSpinner from '../components/LoadingSpinner';
@@ -65,36 +65,23 @@ export default function Orders() {
   const [editItems, setEditItems] = useState([]);
   const variantRefs = useRef({});
   const quantityRefs = useRef({});
-  const runLoadOrders = useEffectEvent((options = {}) => {
-    loadOrders(options);
-  });
 
   useEffect(() => {
-    runLoadOrders();
-  }, [dateFilter, runLoadOrders]);
+    loadOrders();
+  }, [dateFilter]);
 
-  useEffect(() => {
-    const timerId = window.setInterval(() => {
-      runLoadOrders({ silent: true });
-    }, 60000);
-
-    return () => window.clearInterval(timerId);
-  }, [dateFilter, runLoadOrders]);
-
-  async function loadOrders(options = {}) {
-    const { silent = false } = options;
-
+  async function loadOrders() {
     try {
-      if (!silent) setLoading(true);
+      setLoading(true);
       const params = {};
       if (dateFilter) params.date = dateFilter;
       params.sync = 1;
       const res = await orderApi.getAll(params);
       setOrders(res.data);
     } catch (err) {
-      if (!silent) toast.error(err.message);
+      toast.error(err.message);
     } finally {
-      if (!silent) setLoading(false);
+      setLoading(false);
     }
   }
 
@@ -174,18 +161,8 @@ export default function Orders() {
 
   async function openView(order) {
     try {
-      let res;
-      try {
-        res = order?.yalidine_tracking
-          ? await orderApi.syncStatus(order.id)
-          : await orderApi.getById(order.id);
-      } catch (syncErr) {
-        if (!order?.yalidine_tracking) throw syncErr;
-        res = await orderApi.getById(order.id);
-      }
-
+      const res = await orderApi.getById(order.id);
       setViewOrder(res.data);
-      setOrders((prev) => prev.map((current) => (current.id === order.id ? { ...current, ...res.data } : current)));
       setViewOpen(true);
     } catch (err) {
       toast.error(err.message);
@@ -578,12 +555,8 @@ export default function Orders() {
     }
   }
 
-  function getOrderStatusText(order) {
-    return String(order?.yalidine_label || order?.yalidine_status || '').trim();
-  }
-
   function getDeliveryStatusMeta(order) {
-    const status = getOrderStatusText(order);
+    const status = String(order?.yalidine_status || '').trim();
     if (!status) {
       if (order?.yalidine_tracking || order?.order_status === 'approved') {
         return {
@@ -1375,9 +1348,9 @@ export default function Orders() {
                     <p className="text-xs text-green-600 font-mono">{viewOrder.yalidine_tracking}</p>
                   </div>
                 </div>
-                {getOrderStatusText(viewOrder) && (
+                {viewOrder.yalidine_status && (
                   <span className="px-2 py-1 rounded-full bg-green-200 text-green-800 text-xs font-medium">
-                    {getOrderStatusText(viewOrder)}
+                    {viewOrder.yalidine_status}
                   </span>
                 )}
               </div>
