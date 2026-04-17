@@ -79,9 +79,6 @@ async function initializeDatabase() {
       yalidine_tracking TEXT,
       yalidine_status TEXT,
       yalidine_label TEXT,
-      last_whatsapp_status_sent TEXT,
-      last_whatsapp_status_sent_at TEXT,
-      last_whatsapp_message_id TEXT,
       yalidine_price REAL,
       created_at TEXT DEFAULT (datetime('now'))
     );
@@ -136,9 +133,7 @@ async function setupDatabase() {
     ['firstname', 'TEXT'], ['familyname', 'TEXT'], ['contact_phone', 'TEXT'],
     ['address', 'TEXT'], ['to_wilaya_name', 'TEXT'], ['to_commune_name', 'TEXT'],
     ['is_stopdesk', 'INTEGER DEFAULT 0'], ['yalidine_tracking', 'TEXT'],
-    ['yalidine_status', 'TEXT'], ['yalidine_label', 'TEXT'],
-    ['last_whatsapp_status_sent', 'TEXT'], ['last_whatsapp_status_sent_at', 'TEXT'],
-    ['last_whatsapp_message_id', 'TEXT'], ['yalidine_price', 'REAL'],
+    ['yalidine_status', 'TEXT'], ['yalidine_label', 'TEXT'], ['yalidine_price', 'REAL'],
   ];
   for (const [name, type] of migrations) {
     if (!cols.includes(name)) {

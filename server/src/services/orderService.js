@@ -6,241 +6,42 @@
 const { db } = require('../db/connection');
 const { calculateLineItem, calculateOrderTotals, generateOrderNumber } = require('../utils/calculations');
 const yalidineService = require('./yalidineService');
-const whatsappService = require('./whatsappService');
 
-function extractText(candidate) {
-  if (candidate == null) return null;
-
-  if (typeof candidate === 'string') {
-    const value = candidate.trim();
-    return value || null;
-  }
-
-  if (typeof candidate === 'number' && Number.isFinite(candidate)) {
-    return String(candidate);
-  }
-
-  if (typeof candidate !== 'object') return null;
-
-  const nestedCandidates = [
-    candidate.label,
-    candidate.status_label,
-    candidate.state_label,
-    candidate.name,
-    candidate.status,
-    candidate.state,
-    candidate.title,
-    candidate.description,
-    candidate.text,
-    candidate.value,
-    candidate.code,
-    candidate.fr,
-    candidate.en,
-    candidate.ar,
-  ];
-
-  for (const nested of nestedCandidates) {
-    const value = extractText(nested);
-    if (value) return value;
-  }
-
-  return null;
-}
-
-function firstText(candidates = []) {
-  for (const candidate of candidates) {
-    const value = extractText(candidate);
-    if (value) return value;
-  }
-  return null;
-}
-
-function unwrapYalidineEntity(payload) {
+function extractYalidineStatus(payload) {
   if (!payload || typeof payload !== 'object') return null;
 
-  if (Array.isArray(payload)) {
-    return payload.find((entry) => entry && typeof entry === 'object') || null;
-  }
-
-  if (Array.isArray(payload.data)) {
-    return payload.data.find((entry) => entry && typeof entry === 'object') || null;
-  }
-
-  if (payload.data && typeof payload.data === 'object') {
-    return payload.data;
-  }
-
-  return payload;
-}
-
-function historyTimestamp(entry) {
-  const directCandidates = [
-    entry?.updated_at,
-    entry?.created_at,
-    entry?.updatedAt,
-    entry?.createdAt,
-    entry?.date_status,
-    entry?.status_date,
-    entry?.date_creation,
+  const candidates = [
+    payload.state,
+    payload.status,
+    payload.last_status,
+    payload.last_state,
+    payload.current_status,
+    payload.current_state,
+    payload?.data?.state,
+    payload?.data?.status,
+    payload?.data?.last_status,
+    payload?.data?.last_state,
+    payload?.data?.current_status,
+    payload?.data?.current_state,
+    payload?.data?.last_status?.name,
+    payload?.data?.last_state?.name,
+    payload?.data?.current_status?.name,
+    payload?.data?.current_state?.name,
+    Array.isArray(payload?.history) ? payload.history[0]?.status : null,
+    Array.isArray(payload?.history) ? payload.history[0]?.state : null,
+    Array.isArray(payload?.history) ? payload.history[0]?.label : null,
+    Array.isArray(payload?.data?.history) ? payload.data.history[0]?.status : null,
+    Array.isArray(payload?.data?.history) ? payload.data.history[0]?.state : null,
+    Array.isArray(payload?.data?.history) ? payload.data.history[0]?.label : null,
   ];
 
-  for (const candidate of directCandidates) {
-    if (typeof candidate === 'number' && Number.isFinite(candidate) && candidate > 0) {
-      return candidate > 1e12 ? candidate : candidate * 1000;
+  for (const candidate of candidates) {
+    if (typeof candidate === 'string' && candidate.trim()) {
+      return candidate.trim();
     }
-
-    const ts = new Date(candidate || '').getTime();
-    if (!Number.isNaN(ts) && ts > 0) return ts;
   }
 
-  return 0;
-}
-
-function getLatestHistoryEntry(payload) {
-  const collections = [
-    Array.isArray(payload?.history) ? payload.history : [],
-    Array.isArray(payload?.data?.history) ? payload.data.history : [],
-    Array.isArray(payload) ? payload : [],
-    Array.isArray(payload?.data) ? payload.data : [],
-  ];
-
-  const rows = collections
-    .flat()
-    .filter((entry) => entry && typeof entry === 'object');
-
-  if (rows.length === 0) return null;
-
-  return rows
-    .map((entry, index) => ({ entry, index, ts: historyTimestamp(entry) }))
-    .sort((a, b) => {
-      if (b.ts !== a.ts) return b.ts - a.ts;
-      return a.index - b.index;
-    })[0]
-    .entry;
-}
-
-function extractYalidineSnapshot(payload) {
-  const entity = unwrapYalidineEntity(payload) || {};
-  const latestHistory = getLatestHistoryEntry(payload);
-
-  const label = firstText([
-    entity.label,
-    entity.status_label,
-    entity.state_label,
-    entity.last_status_label,
-    entity.last_state_label,
-    entity.current_status_label,
-    entity.current_state_label,
-    latestHistory?.label,
-    latestHistory?.status_label,
-    latestHistory?.state_label,
-    latestHistory?.status,
-    latestHistory?.state,
-  ]);
-
-  const status = firstText([
-    entity.state,
-    entity.status,
-    entity.last_status,
-    entity.last_state,
-    entity.current_status,
-    entity.current_state,
-    latestHistory?.status,
-    latestHistory?.state,
-    latestHistory?.label,
-  ]);
-
-  const tracking = firstText([
-    entity.tracking,
-    entity.tracking_number,
-    entity.tracking_num,
-    entity.barcode,
-    entity.parcel_tracking,
-    latestHistory?.tracking,
-    latestHistory?.tracking_number,
-    latestHistory?.tracking_num,
-  ]);
-
-  return {
-    status: status || label || null,
-    label: label || status || null,
-    tracking: tracking || null,
-  };
-}
-
-function hasSnapshotChanges(order, snapshot) {
-  return (
-    String(snapshot?.status || '') !== String(order?.yalidine_status || '')
-    || String(snapshot?.label || '') !== String(order?.yalidine_label || '')
-  );
-}
-
-function getOrderStatusText(order) {
-  return firstText([order?.yalidine_label, order?.yalidine_status]);
-}
-
-function getWhatsappMessageId(payload) {
-  return firstText([
-    payload?.messages?.[0]?.id,
-    payload?.messageId,
-    payload?.message_id,
-  ]);
-}
-
-async function recordWhatsappStatusNotification(orderId, statusText, messageId) {
-  await db.execute({
-    sql: `UPDATE orders
-          SET last_whatsapp_status_sent = ?,
-              last_whatsapp_status_sent_at = datetime('now'),
-              last_whatsapp_message_id = ?
-          WHERE id = ?`,
-    args: [statusText || null, messageId || null, orderId],
-  });
-}
-
-async function sendWhatsappStatusNotification(previousOrder, nextOrder) {
-  if (!whatsappService.isConfigured()) return;
-
-  const previousStatus = getOrderStatusText(previousOrder);
-  const nextStatus = getOrderStatusText(nextOrder);
-
-  if (!nextStatus || nextStatus === previousStatus) return;
-  if (!nextOrder?.contact_phone) return;
-  if (String(previousOrder?.last_whatsapp_status_sent || '') === String(nextStatus)) return;
-
-  try {
-    const result = await whatsappService.sendOrderStatusUpdate(nextOrder, { statusText: nextStatus });
-    if (result?.skipped) return;
-
-    await recordWhatsappStatusNotification(nextOrder.id, nextStatus, getWhatsappMessageId(result));
-  } catch (err) {
-    console.warn(`Failed to send WhatsApp notification for order ${nextOrder.id}:`, err.message);
-  }
-}
-
-function triggerWhatsappStatusNotification(previousOrder, nextOrder) {
-  void sendWhatsappStatusNotification(previousOrder, nextOrder);
-}
-
-async function updateOrderSnapshot(orderId, snapshot) {
-  await db.execute({
-    sql: 'UPDATE orders SET yalidine_status = ?, yalidine_label = ? WHERE id = ?',
-    args: [snapshot.status || null, snapshot.label || null, orderId],
-  });
-}
-
-async function runWithConcurrency(items, limit, worker) {
-  const maxWorkers = Math.max(1, Math.min(Number(limit) || 1, items.length || 0));
-  if (maxWorkers === 0) return;
-
-  let index = 0;
-  await Promise.all(Array.from({ length: maxWorkers }, async () => {
-    while (index < items.length) {
-      const current = items[index];
-      index += 1;
-      await worker(current);
-    }
-  }));
+  return null;
 }
 
 function normalizePhone(value) {
@@ -312,6 +113,18 @@ function extractParcelOrderId(parcel) {
   return null;
 }
 
+function extractParcelLabel(parcel) {
+  const candidates = [
+    parcel?.label,
+    parcel?.status_label,
+    parcel?.state,
+  ];
+  for (const candidate of candidates) {
+    if (typeof candidate === 'string' && candidate.trim()) return candidate.trim();
+  }
+  return null;
+}
+
 function parcelTimestamp(parcel) {
   const candidates = [
     parcel?.updated_at,
@@ -353,24 +166,23 @@ const orderService = {
     const rows = result.rows;
 
     if (options.syncYalidine && yalidineService.isConfigured()) {
-      const trackedOrders = rows.filter((order) => order.yalidine_tracking);
+      await Promise.all(rows.map(async (order) => {
+        if (!order.yalidine_tracking) return;
 
-      await runWithConcurrency(trackedOrders, 4, async (order) => {
         try {
           const trackingPayload = await yalidineService.getTracking(order.yalidine_tracking);
-          const snapshot = extractYalidineSnapshot(trackingPayload);
-          if (!snapshot.status && !snapshot.label) return;
-          if (!hasSnapshotChanges(order, snapshot)) return;
+          const latestStatus = extractYalidineStatus(trackingPayload);
+          if (!latestStatus || latestStatus === order.yalidine_status) return;
 
-          const previousOrder = { ...order };
-          await updateOrderSnapshot(order.id, snapshot);
-          order.yalidine_status = snapshot.status;
-          order.yalidine_label = snapshot.label;
-          triggerWhatsappStatusNotification(previousOrder, order);
+          await db.execute({
+            sql: 'UPDATE orders SET yalidine_status = ? WHERE id = ?',
+            args: [latestStatus, order.id],
+          });
+          order.yalidine_status = latestStatus;
         } catch (err) {
           console.warn(`Failed to sync Yalidine status for order ${order.id}:`, err.message);
         }
-      });
+      }));
     }
 
     return rows;
@@ -627,14 +439,13 @@ const orderService = {
     }
 
     const trackingPayload = await yalidineService.getTracking(order.yalidine_tracking);
-    const snapshot = extractYalidineSnapshot(trackingPayload);
+    const latestStatus = extractYalidineStatus(trackingPayload);
 
-    if ((snapshot.status || snapshot.label) && hasSnapshotChanges(order, snapshot)) {
-      const previousOrder = { ...order };
-      await updateOrderSnapshot(id, snapshot);
-      order.yalidine_status = snapshot.status;
-      order.yalidine_label = snapshot.label;
-      triggerWhatsappStatusNotification(previousOrder, order);
+    if (latestStatus && latestStatus !== order.yalidine_status) {
+      await db.execute({
+        sql: 'UPDATE orders SET yalidine_status = ? WHERE id = ?',
+        args: [latestStatus, id],
+      });
     }
 
     return this.getById(id);
@@ -649,9 +460,7 @@ const orderService = {
     }
 
     const result = await db.execute({
-      sql: `SELECT id, order_number, firstname, familyname, contact_phone,
-                   to_wilaya_name, to_commune_name, yalidine_tracking,
-                   yalidine_status, yalidine_label, last_whatsapp_status_sent
+      sql: `SELECT id, yalidine_tracking, yalidine_status
             FROM orders
             WHERE yalidine_tracking IS NOT NULL
               AND trim(yalidine_tracking) != ''
@@ -662,25 +471,24 @@ const orderService = {
     let updated = 0;
     let failed = 0;
 
-    await runWithConcurrency(result.rows, 4, async (order) => {
+    await Promise.all(result.rows.map(async (order) => {
       try {
         const trackingPayload = await yalidineService.getTracking(order.yalidine_tracking);
-        const snapshot = extractYalidineSnapshot(trackingPayload);
+        const latestStatus = extractYalidineStatus(trackingPayload);
         synced += 1;
 
-        if ((snapshot.status || snapshot.label) && hasSnapshotChanges(order, snapshot)) {
-          const previousOrder = { ...order };
-          await updateOrderSnapshot(order.id, snapshot);
-          order.yalidine_status = snapshot.status;
-          order.yalidine_label = snapshot.label;
-          triggerWhatsappStatusNotification(previousOrder, order);
+        if (latestStatus && latestStatus !== order.yalidine_status) {
+          await db.execute({
+            sql: 'UPDATE orders SET yalidine_status = ? WHERE id = ?',
+            args: [latestStatus, order.id],
+          });
           updated += 1;
         }
       } catch (err) {
         failed += 1;
         console.warn(`Failed to sync old order ${order.id}:`, err.message);
       }
-    });
+    }));
 
     return {
       totalTracked: result.rows.length,
@@ -709,9 +517,7 @@ const orderService = {
     }
 
     const ordersResult = await db.execute({
-      sql: `SELECT id, order_number, firstname, familyname, contact_phone,
-                   to_wilaya_name, to_commune_name, yalidine_tracking,
-                   yalidine_status, yalidine_label, last_whatsapp_status_sent
+      sql: `SELECT id, order_number, contact_phone, yalidine_tracking, yalidine_status, yalidine_label
             FROM orders
             WHERE ${where.join(' AND ')}
             ORDER BY created_at ASC`,
@@ -775,27 +581,21 @@ const orderService = {
 
         matched += 1;
 
-        const snapshot = extractYalidineSnapshot(best);
-        const nextTracking = snapshot.tracking || extractParcelTracking(best) || order.yalidine_tracking || null;
-        const nextStatus = snapshot.status || order.yalidine_status || null;
-        const nextLabel = snapshot.label || order.yalidine_label || null;
+        const nextTracking = extractParcelTracking(best) || order.yalidine_tracking || null;
+        const nextStatus = extractYalidineStatus(best) || order.yalidine_status || null;
+        const nextLabel = extractParcelLabel(best) || order.yalidine_label || null;
 
         if (
           String(nextTracking || '') !== String(order.yalidine_tracking || '')
           || String(nextStatus || '') !== String(order.yalidine_status || '')
           || String(nextLabel || '') !== String(order.yalidine_label || '')
         ) {
-          const previousOrder = { ...order };
           await db.execute({
             sql: `UPDATE orders
                   SET yalidine_tracking = ?, yalidine_status = ?, yalidine_label = ?
                   WHERE id = ?`,
             args: [nextTracking, nextStatus, nextLabel, order.id],
           });
-          order.yalidine_tracking = nextTracking;
-          order.yalidine_status = nextStatus;
-          order.yalidine_label = nextLabel;
-          triggerWhatsappStatusNotification(previousOrder, order);
           updated += 1;
         }
       } catch (err) {
@@ -964,37 +764,16 @@ const orderService = {
     const productList = order.items.map(i => `${i.product_name} (${i.variant_info}) x${i.quantity}`).join(', ') + ' - يسمح بالفتح';
     const result = await yalidineService.createParcel({ ...order, ...normalized }, productList);
 
-    const createdParcel = unwrapYalidineEntity(result);
-    const createdSnapshot = extractYalidineSnapshot(result);
-
-    if (createdParcel && (createdSnapshot.tracking || createdSnapshot.status || createdSnapshot.label || extractParcelTracking(createdParcel))) {
-      const previousOrder = { ...order };
+    if (result && Array.isArray(result) && result.length > 0) {
+      const parcel = result[0];
       await db.execute({
         sql: `UPDATE orders SET order_status = 'approved', yalidine_tracking = ?, yalidine_status = ?, yalidine_label = ? WHERE id = ?`,
-        args: [
-          createdSnapshot.tracking || extractParcelTracking(createdParcel) || null,
-          createdSnapshot.status || 'En preparation',
-          createdSnapshot.label || null,
-          id,
-        ],
-      });
-      triggerWhatsappStatusNotification(previousOrder, {
-        ...order,
-        order_status: 'approved',
-        yalidine_tracking: createdSnapshot.tracking || extractParcelTracking(createdParcel) || null,
-        yalidine_status: createdSnapshot.status || 'En preparation',
-        yalidine_label: createdSnapshot.label || null,
+        args: [parcel.tracking || null, parcel.state || parcel.status || 'En preparation', parcel.label || null, id],
       });
     } else {
-      const previousOrder = { ...order };
       await db.execute({
         sql: `UPDATE orders SET order_status = 'approved', yalidine_status = 'En preparation' WHERE id = ?`,
         args: [id],
-      });
-      triggerWhatsappStatusNotification(previousOrder, {
-        ...order,
-        order_status: 'approved',
-        yalidine_status: 'En preparation',
       });
     }
 
