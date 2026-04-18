@@ -452,10 +452,21 @@ export default function Orders() {
       return toast.error('يرجى إضافة عنصر واحد على الأقل');
     }
 
+    if (!firstname.trim() || !contactPhone.trim() || !selectedWilayaName || !selectedCommune) {
+      return toast.error('يرجى إدخال معلومات الشحن الأساسية');
+    }
+
+    if (isStopdesk && !selectedCenter) {
+      return toast.error('يرجى اختيار مكتب الاستلام');
+    }
+
+    if (!isStopdesk && !address.trim()) {
+      return toast.error('يرجى إدخال العنوان للتوصيل المنزلي');
+    }
+
     try {
       setSaving(true);
-      // If stop desk, use the center's address; if domicile, always "."
-      let shippingAddress = '.';
+      let shippingAddress = address.trim();
       if (isStopdesk && selectedCenter) {
         const center = centers.find(c => String(c.center_id) === String(selectedCenter));
         if (center) shippingAddress = `[Stop Desk] ${center.name} - ${center.address}`;
