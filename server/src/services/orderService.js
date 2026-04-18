@@ -146,6 +146,29 @@ function parcelTimestamp(parcel) {
   return 0;
 }
 
+async function findFreshParcelForOrder(order) {
+  const tail = getPhoneTail(order?.contact_phone);
+  if (!tail) return null;
+
+  const candidates = getPhoneCandidates(order.contact_phone);
+  for (const candidate of candidates) {
+    try {
+      const rows = await yalidineService.getAllParcelsByPhone(candidate, { maxPages: 3, pageSize: 50 });
+      const samePhone = rows.filter((parcel) => getPhoneTail(extractParcelPhone(parcel)) === tail);
+      if (samePhone.length === 0) continue;
+
+      const byOrderId = samePhone.find((parcel) => extractParcelOrderId(parcel) === String(order.order_number || '').trim());
+      if (byOrderId) return byOrderId;
+
+      return samePhone.slice().sort((a, b) => parcelTimestamp(b) - parcelTimestamp(a))[0] || null;
+    } catch {
+      // Try the next phone format candidate.
+    }
+  }
+
+  return null;
+}
+
 const orderService = {
   /**
    * Get all orders with optional date filtering
@@ -770,24 +793,25 @@ const orderService = {
     const productList = order.items.map(i => `${i.product_name} (${i.variant_info}) x${i.quantity}`).join(', ') + ' - يسمح بالفتح';
     const result = await yalidineService.createParcel({ ...order, ...normalized }, productList);
     const parcels = getParcelRows(result);
+    let parcel = parcels[0] || null;
+    let tracking = extractParcelTracking(parcel);
+    let status = extractYalidineStatus(parcel) || 'En preparation';
+    let label = extractParcelLabel(parcel);
 
-    if (parcels.length > 0) {
-      const parcel = parcels[0];
-      await db.execute({
-        sql: `UPDATE orders SET order_status = 'approved', yalidine_tracking = ?, yalidine_status = ?, yalidine_label = ? WHERE id = ?`,
-        args: [
-          extractParcelTracking(parcel),
-          extractYalidineStatus(parcel) || 'En preparation',
-          extractParcelLabel(parcel),
-          id,
-        ],
-      });
-    } else {
-      await db.execute({
-        sql: `UPDATE orders SET order_status = 'approved', yalidine_status = 'En preparation' WHERE id = ?`,
-        args: [id],
-      });
+    if (!tracking) {
+      const matchedParcel = await findFreshParcelForOrder({ ...order, ...normalized });
+      if (matchedParcel) {
+        parcel = matchedParcel;
+        tracking = extractParcelTracking(parcel);
+        status = extractYalidineStatus(parcel) || status;
+        label = extractParcelLabel(parcel) || label;
+      }
     }
+
+    await db.execute({
+      sql: `UPDATE orders SET order_status = 'approved', yalidine_tracking = ?, yalidine_status = ?, yalidine_label = ? WHERE id = ?`,
+      args: [tracking || null, status, label || null, id],
+    });
 
     return this.getById(id);
   },
