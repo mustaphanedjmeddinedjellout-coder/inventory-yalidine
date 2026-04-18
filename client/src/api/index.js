@@ -35,6 +35,7 @@ export const orderApi = {
 
 export const analyticsApi = {
   getDashboard: () => api.get('/analytics/dashboard'),
+  getOverview: (params) => api.get('/analytics/overview', { params }),
   getRevenue: (params) => api.get('/analytics/revenue', { params }),
   getTopProducts: (params) => api.get('/analytics/top-products', { params }),
   getCategories: (params) => api.get('/analytics/categories', { params }),
