@@ -246,7 +246,15 @@ export default function Checkout() {
       }
 
       clearCart();
-      navigate(`/order-success/${orderRef}`);
+      navigate(`/order-success/${orderRef}`, {
+        state: {
+          orderNumber: result.orderNumber || orderRef,
+          orderStatus: result.orderStatus || null,
+          yalidineTracking: result.yalidineTracking || null,
+          yalidineStatus: result.yalidineStatus || null,
+          yalidineLabel: result.yalidineLabel || null,
+        },
+      });
     } catch (err) {
       setError(err.message || 'فشل إتمام الطلب');
     } finally {
