@@ -587,6 +587,43 @@ export default function Orders() {
     return { label: status, className: 'bg-blue-100 text-blue-700' };
   }
 
+  function getOrderStatusMeta(order) {
+    const status = String(order?.order_status || '').trim().toLowerCase();
+
+    if (!status) {
+      return {
+        label: '—',
+        className: 'bg-gray-100 text-gray-500',
+      };
+    }
+
+    if (status === 'approved') {
+      return {
+        label: 'مؤكد',
+        className: 'bg-green-100 text-green-700',
+      };
+    }
+
+    if (/(failed|cancel|refus|return)/.test(status)) {
+      return {
+        label: status,
+        className: 'bg-red-100 text-red-700',
+      };
+    }
+
+    if (status === 'pending') {
+      return {
+        label: 'قيد الانتظار',
+        className: 'bg-amber-100 text-amber-700',
+      };
+    }
+
+    return {
+      label: status,
+      className: 'bg-blue-100 text-blue-700',
+    };
+  }
+
   const formatCurrency = (val) =>
     new Intl.NumberFormat('en-US', { style: 'decimal', minimumFractionDigits: 2 }).format(val || 0);
 
@@ -685,7 +722,7 @@ export default function Orders() {
                     <td className="px-5 py-3 text-green-600 font-medium">{formatCurrency(o.total_profit)} da</td>
                     <td className="px-5 py-3">
                       {(() => {
-                        const meta = getDeliveryStatusMeta(o);
+                        const meta = getOrderStatusMeta(o);
                         if (meta.label === '—') return <span className="text-gray-300">—</span>;
 
                         return (
