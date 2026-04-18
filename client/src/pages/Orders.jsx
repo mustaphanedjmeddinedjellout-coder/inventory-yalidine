@@ -1376,22 +1376,34 @@ export default function Orders() {
             )}
 
             {/* Yalidine tracking */}
-            {viewOrder.yalidine_tracking && (
-              <div className="bg-green-50 rounded-lg p-4 flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <Package size={18} className="text-green-600" />
-                  <div>
-                    <p className="text-sm font-bold text-green-800">Yalidine Tracking</p>
-                    <p className="text-xs text-green-600 font-mono">{viewOrder.yalidine_tracking}</p>
-                  </div>
+            <div className={`rounded-lg p-4 flex items-center justify-between ${
+              viewOrder.yalidine_tracking ? 'bg-green-50' : 'bg-gray-50'
+            }`}>
+              <div className="flex items-center gap-2">
+                <Package size={18} className={viewOrder.yalidine_tracking ? 'text-green-600' : 'text-gray-500'} />
+                <div>
+                  <p className={`text-sm font-bold ${
+                    viewOrder.yalidine_tracking ? 'text-green-800' : 'text-gray-700'
+                  }`}>
+                    Yalidine Tracking
+                  </p>
+                  <p className={`text-xs font-mono ${
+                    viewOrder.yalidine_tracking ? 'text-green-600' : 'text-gray-500'
+                  }`}>
+                    {viewOrder.yalidine_tracking || 'غير مرتبط بعد'}
+                  </p>
                 </div>
-                {viewOrder.yalidine_status && (
-                  <span className="px-2 py-1 rounded-full bg-green-200 text-green-800 text-xs font-medium">
-                    {viewOrder.yalidine_status}
-                  </span>
-                )}
               </div>
-            )}
+              <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                viewOrder.yalidine_tracking
+                  ? getDeliveryStatusMeta(viewOrder).className
+                  : 'bg-gray-200 text-gray-700'
+              }`}>
+                {viewOrder.yalidine_tracking
+                  ? (viewOrder.yalidine_status || 'En preparation')
+                  : 'لا يوجد Tracking'}
+              </span>
+            </div>
 
             {/* Order summary */}
             <div className="grid grid-cols-3 gap-4">
