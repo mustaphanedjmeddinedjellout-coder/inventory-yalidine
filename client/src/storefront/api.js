@@ -8,14 +8,6 @@ async function request(path, options) {
   return data.data ?? data;
 }
 
-function withStoreHeaders(headers = {}) {
-  const storeKey = import.meta.env.VITE_STORE_API_KEY;
-  return {
-    ...headers,
-    ...(storeKey ? { 'X-STORE-KEY': storeKey } : {}),
-  };
-}
-
 export function fetchProducts() {
   return request('/api/store/products');
 }
@@ -25,16 +17,14 @@ export function fetchProductById(id) {
 }
 
 export function submitCheckout(payload) {
+  const storeKey = import.meta.env.VITE_STORE_API_KEY;
   return request('/api/store/checkout', {
     method: 'POST',
-    headers: withStoreHeaders({ 'Content-Type': 'application/json' }),
+    headers: {
+      'Content-Type': 'application/json',
+      ...(storeKey ? { 'X-STORE-KEY': storeKey } : {}),
+    },
     body: JSON.stringify(payload),
-  });
-}
-
-export function fetchOrderStatus(orderNumber) {
-  return request(`/api/store/orders/${encodeURIComponent(orderNumber)}/status`, {
-    headers: withStoreHeaders(),
   });
 }
 

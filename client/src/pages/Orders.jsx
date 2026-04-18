@@ -452,21 +452,10 @@ export default function Orders() {
       return toast.error('يرجى إضافة عنصر واحد على الأقل');
     }
 
-    if (!firstname.trim() || !contactPhone.trim() || !selectedWilayaName || !selectedCommune) {
-      return toast.error('يرجى إدخال معلومات الشحن الأساسية');
-    }
-
-    if (isStopdesk && !selectedCenter) {
-      return toast.error('يرجى اختيار مكتب الاستلام');
-    }
-
-    if (!isStopdesk && !address.trim()) {
-      return toast.error('يرجى إدخال العنوان للتوصيل المنزلي');
-    }
-
     try {
       setSaving(true);
-      let shippingAddress = address.trim();
+      // If stop desk, use the center's address; if domicile, always "."
+      let shippingAddress = '.';
       if (isStopdesk && selectedCenter) {
         const center = centers.find(c => String(c.center_id) === String(selectedCenter));
         if (center) shippingAddress = `[Stop Desk] ${center.name} - ${center.address}`;
@@ -598,43 +587,6 @@ export default function Orders() {
     return { label: status, className: 'bg-blue-100 text-blue-700' };
   }
 
-  function getOrderStatusMeta(order) {
-    const status = String(order?.order_status || '').trim().toLowerCase();
-
-    if (!status) {
-      return {
-        label: '—',
-        className: 'bg-gray-100 text-gray-500',
-      };
-    }
-
-    if (status === 'approved') {
-      return {
-        label: 'مؤكد',
-        className: 'bg-green-100 text-green-700',
-      };
-    }
-
-    if (/(failed|cancel|refus|return)/.test(status)) {
-      return {
-        label: status,
-        className: 'bg-red-100 text-red-700',
-      };
-    }
-
-    if (status === 'pending') {
-      return {
-        label: 'قيد الانتظار',
-        className: 'bg-amber-100 text-amber-700',
-      };
-    }
-
-    return {
-      label: status,
-      className: 'bg-blue-100 text-blue-700',
-    };
-  }
-
   const formatCurrency = (val) =>
     new Intl.NumberFormat('en-US', { style: 'decimal', minimumFractionDigits: 2 }).format(val || 0);
 
@@ -733,7 +685,7 @@ export default function Orders() {
                     <td className="px-5 py-3 text-green-600 font-medium">{formatCurrency(o.total_profit)} da</td>
                     <td className="px-5 py-3">
                       {(() => {
-                        const meta = getOrderStatusMeta(o);
+                        const meta = getDeliveryStatusMeta(o);
                         if (meta.label === '—') return <span className="text-gray-300">—</span>;
 
                         return (
@@ -1387,34 +1339,22 @@ export default function Orders() {
             )}
 
             {/* Yalidine tracking */}
-            <div className={`rounded-lg p-4 flex items-center justify-between ${
-              viewOrder.yalidine_tracking ? 'bg-green-50' : 'bg-gray-50'
-            }`}>
-              <div className="flex items-center gap-2">
-                <Package size={18} className={viewOrder.yalidine_tracking ? 'text-green-600' : 'text-gray-500'} />
-                <div>
-                  <p className={`text-sm font-bold ${
-                    viewOrder.yalidine_tracking ? 'text-green-800' : 'text-gray-700'
-                  }`}>
-                    Yalidine Tracking
-                  </p>
-                  <p className={`text-xs font-mono ${
-                    viewOrder.yalidine_tracking ? 'text-green-600' : 'text-gray-500'
-                  }`}>
-                    {viewOrder.yalidine_tracking || 'غير مرتبط بعد'}
-                  </p>
+            {viewOrder.yalidine_tracking && (
+              <div className="bg-green-50 rounded-lg p-4 flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Package size={18} className="text-green-600" />
+                  <div>
+                    <p className="text-sm font-bold text-green-800">Yalidine Tracking</p>
+                    <p className="text-xs text-green-600 font-mono">{viewOrder.yalidine_tracking}</p>
+                  </div>
                 </div>
+                {viewOrder.yalidine_status && (
+                  <span className="px-2 py-1 rounded-full bg-green-200 text-green-800 text-xs font-medium">
+                    {viewOrder.yalidine_status}
+                  </span>
+                )}
               </div>
-              <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                viewOrder.yalidine_tracking
-                  ? getDeliveryStatusMeta(viewOrder).className
-                  : 'bg-gray-200 text-gray-700'
-              }`}>
-                {viewOrder.yalidine_tracking
-                  ? (viewOrder.yalidine_status || 'En preparation')
-                  : 'لا يوجد Tracking'}
-              </span>
-            </div>
+            )}
 
             {/* Order summary */}
             <div className="grid grid-cols-3 gap-4">

@@ -66,54 +66,6 @@ router.get('/products/:id', async (req, res) => {
   }
 });
 
-// GET /api/store/orders/:orderNumber/status - protected order status lookup
-router.get('/orders/:orderNumber/status', storeApiKey, async (req, res) => {
-  try {
-    const orderNumber = String(req.params.orderNumber || '').trim();
-    if (!orderNumber) {
-      return error(res, 'Order number is required', 400);
-    }
-
-    const result = await db.execute({
-      sql: `SELECT id, order_number, order_status, yalidine_tracking, yalidine_status, yalidine_label, created_at
-            FROM orders
-            WHERE order_number = ?`,
-      args: [orderNumber],
-    });
-
-    if (result.rows.length === 0) {
-      return error(res, 'Order not found', 404);
-    }
-
-    let order = result.rows[0];
-
-    if (order.yalidine_tracking) {
-      const synced = await orderService.syncYalidineStatus(order.id);
-      order = {
-        id: synced.id,
-        order_number: synced.order_number,
-        order_status: synced.order_status,
-        yalidine_tracking: synced.yalidine_tracking,
-        yalidine_status: synced.yalidine_status,
-        yalidine_label: synced.yalidine_label,
-        created_at: synced.created_at,
-      };
-    }
-
-    success(res, {
-      orderId: order.id,
-      orderNumber: order.order_number,
-      orderStatus: order.order_status,
-      yalidineTracking: order.yalidine_tracking || null,
-      yalidineStatus: order.yalidine_status || null,
-      yalidineLabel: order.yalidine_label || null,
-      createdAt: order.created_at,
-    });
-  } catch (err) {
-    error(res, err.message, 400);
-  }
-});
-
 // POST /api/store/checkout - protected order creation
 router.post('/checkout', storeApiKey, async (req, res) => {
   try {
@@ -155,7 +107,6 @@ router.post('/checkout', storeApiKey, async (req, res) => {
       is_stopdesk: customer.deliveryMethod === 'stopdesk',
       yalidine_price: orderTotal,
       delivery_price: deliveryPrice,
-      approve: true,
       items: items.map((item) => ({
         product_id: Number(item.product_id),
         variant_id: Number(item.variant_id),
@@ -201,10 +152,6 @@ router.post('/checkout', storeApiKey, async (req, res) => {
     success(res, {
       orderId: order.id,
       orderNumber: order.order_number,
-      orderStatus: order.order_status,
-      yalidineTracking: order.yalidine_tracking || null,
-      yalidineStatus: order.yalidine_status || null,
-      yalidineLabel: order.yalidine_label || null,
     });
   } catch (err) {
     error(res, err.message, 400);
