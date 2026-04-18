@@ -18,18 +18,6 @@ router.get('/dashboard', async (req, res) => {
   }
 });
 
-// GET /api/analytics/overview - Period summary with previous-period comparison
-router.get('/overview', async (req, res) => {
-  try {
-    const from = req.query.from || new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
-    const to = req.query.to || new Date().toISOString().slice(0, 10);
-    const data = await analyticsService.getOverview(from, to);
-    success(res, data);
-  } catch (err) {
-    error(res, err.message);
-  }
-});
-
 // GET /api/analytics/revenue - Revenue & profit by day
 router.get('/revenue', async (req, res) => {
   try {
@@ -48,8 +36,7 @@ router.get('/top-products', async (req, res) => {
     const from = req.query.from || new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
     const to = req.query.to || new Date().toISOString().slice(0, 10);
     const limit = parseInt(req.query.limit) || 10;
-    const sort = String(req.query.sort || 'quantity');
-    const data = await analyticsService.getTopProducts(from, to, limit, sort);
+    const data = await analyticsService.getTopProducts(from, to, limit);
     success(res, data);
   } catch (err) {
     error(res, err.message);
