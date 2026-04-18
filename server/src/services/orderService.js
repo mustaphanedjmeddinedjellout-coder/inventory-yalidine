@@ -125,6 +125,12 @@ function extractParcelLabel(parcel) {
   return null;
 }
 
+function getParcelRows(payload) {
+  if (Array.isArray(payload)) return payload;
+  if (Array.isArray(payload?.data)) return payload.data;
+  return [];
+}
+
 function parcelTimestamp(parcel) {
   const candidates = [
     parcel?.updated_at,
@@ -763,12 +769,18 @@ const orderService = {
 
     const productList = order.items.map(i => `${i.product_name} (${i.variant_info}) x${i.quantity}`).join(', ') + ' - يسمح بالفتح';
     const result = await yalidineService.createParcel({ ...order, ...normalized }, productList);
+    const parcels = getParcelRows(result);
 
-    if (result && Array.isArray(result) && result.length > 0) {
-      const parcel = result[0];
+    if (parcels.length > 0) {
+      const parcel = parcels[0];
       await db.execute({
         sql: `UPDATE orders SET order_status = 'approved', yalidine_tracking = ?, yalidine_status = ?, yalidine_label = ? WHERE id = ?`,
-        args: [parcel.tracking || null, parcel.state || parcel.status || 'En preparation', parcel.label || null, id],
+        args: [
+          extractParcelTracking(parcel),
+          extractYalidineStatus(parcel) || 'En preparation',
+          extractParcelLabel(parcel),
+          id,
+        ],
       });
     } else {
       await db.execute({
