@@ -7,7 +7,7 @@ import { useEffect, useRef, useState } from 'react';
 import { orderApi, productApi, yalidineApi } from '../api';
 import Modal from '../components/Modal';
 import LoadingSpinner from '../components/LoadingSpinner';
-import { Plus, Trash2, Eye, ShoppingCart, Calendar, Truck, Package, RefreshCw, Pencil } from 'lucide-react';
+import { Plus, Trash2, Eye, ShoppingCart, Calendar, Truck, Package, RefreshCw, Pencil, Search } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 export default function Orders() {
@@ -16,6 +16,7 @@ export default function Orders() {
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [dateFilter, setDateFilter] = useState('');
+  const [searchQuery, setSearchQuery] = useState('');
   const [syncingOldOrders, setSyncingOldOrders] = useState(false);
   const [syncingByPhone, setSyncingByPhone] = useState(false);
 
@@ -592,6 +593,34 @@ export default function Orders() {
 
   const preview = getOrderPreview();
 
+  const normalizedQuery = searchQuery
+    .trim()
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '');
+
+  const filteredOrders = normalizedQuery
+    ? orders.filter((order) => {
+        const haystack = [
+          order.order_number,
+          order.firstname,
+          order.familyname,
+          order.contact_phone,
+          order.yalidine_tracking,
+          order.to_wilaya_name,
+          order.to_commune_name,
+          order.order_status,
+        ]
+          .filter(Boolean)
+          .join(' ')
+          .toLowerCase()
+          .normalize('NFD')
+          .replace(/[\u0300-\u036f]/g, '');
+
+        return haystack.includes(normalizedQuery);
+      })
+    : orders;
+
   return (
     <div>
       {/* Header */}
@@ -627,8 +656,8 @@ export default function Orders() {
         </div>
       </div>
 
-      {/* Date Filter */}
-      <div className="flex items-center gap-3 mb-6">
+      {/* Date + Search Filters */}
+      <div className="flex flex-col sm:flex-row sm:items-center gap-3 mb-6">
         <div className="relative">
           <Calendar size={16} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400" />
           <input
@@ -636,6 +665,16 @@ export default function Orders() {
             value={dateFilter}
             onChange={(e) => setDateFilter(e.target.value)}
             className="pr-10 pl-4 py-2.5 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+          />
+        </div>
+        <div className="relative flex-1 min-w-[220px]">
+          <Search size={16} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400" />
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="w-full pr-10 pl-4 py-2.5 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+            placeholder="بحث بالرقم، الاسم، الهاتف أو التتبع"
           />
         </div>
         {dateFilter && (
@@ -646,15 +685,23 @@ export default function Orders() {
             عرض الكل
           </button>
         )}
+        {searchQuery && (
+          <button
+            onClick={() => setSearchQuery('')}
+            className="text-sm text-primary hover:text-primary-dark"
+          >
+            مسح البحث
+          </button>
+        )}
       </div>
 
       {/* Orders Table */}
       {loading ? (
         <LoadingSpinner />
-      ) : orders.length === 0 ? (
+      ) : filteredOrders.length === 0 ? (
         <div className="bg-white rounded-xl p-12 text-center border border-gray-100">
           <ShoppingCart size={48} className="mx-auto text-gray-300 mb-3" />
-          <p className="text-gray-500">لا توجد طلبات</p>
+          <p className="text-gray-500">{searchQuery ? 'لا توجد نتائج مطابقة' : 'لا توجد طلبات'}</p>
         </div>
       ) : (
         <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
@@ -674,7 +721,7 @@ export default function Orders() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-50">
-                {orders.map((o) => (
+                {filteredOrders.map((o) => (
                   <tr key={o.id} className="table-row-hover">
                     <td className="px-5 py-3 font-mono text-xs">{o.order_number}</td>
                     <td className="px-5 py-3 text-sm">
