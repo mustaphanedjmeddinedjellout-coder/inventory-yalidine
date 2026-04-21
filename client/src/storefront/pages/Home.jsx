@@ -29,7 +29,7 @@ export default function Home() {
     };
   }, []);
 
-  const tshirts = useMemo(() => products.filter((p) => p.category === 'T-Shirt').slice(0, 8), [products]);
+  const tshirts = useMemo(() => products.filter((p) => p.category === 'T-Shirt'), [products]);
   const promotions = useMemo(
     () =>
       products
@@ -82,18 +82,6 @@ export default function Home() {
 
               <div>
                 <div className="flex items-center justify-between mb-8">
-                  <h2 className="section-heading">T-Shirts</h2>
-                  <Link to="/shop/tshirts" className="text-[11px] uppercase tracking-[0.3em] text-black/40">View all</Link>
-                </div>
-                <div className="grid grid-cols-3 gap-x-4 gap-y-8 sm:grid-cols-3 lg:grid-cols-4">
-                  {tshirts.map((product) => (
-                    <ProductCard key={product.id} product={product} />
-                  ))}
-                </div>
-              </div>
-
-              <div>
-                <div className="flex items-center justify-between mb-8">
                   <h2 className="section-heading">Pants</h2>
                   <Link to="/shop/pants" className="text-[11px] uppercase tracking-[0.3em] text-black/40">View all</Link>
                 </div>
@@ -115,6 +103,19 @@ export default function Home() {
                   ))}
                 </div>
               </div>
+
+              <div>
+                <div className="flex items-center justify-between mb-8">
+                  <h2 className="section-heading">T-Shirts</h2>
+                  <Link to="/shop/tshirts" className="text-[11px] uppercase tracking-[0.3em] text-black/40">View all</Link>
+                </div>
+                <div className="grid grid-cols-3 gap-x-4 gap-y-8 sm:grid-cols-3 lg:grid-cols-4">
+                  {tshirts.map((product) => (
+                    <ProductCard key={product.id} product={product} />
+                  ))}
+                </div>
+              </div>
+
             </>
           )}
         </div>
