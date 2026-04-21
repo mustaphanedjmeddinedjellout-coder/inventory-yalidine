@@ -15,7 +15,7 @@ function normalizeText(value) {
   return String(value || '').trim().toLowerCase();
 }
 
-const SIZE_PRIORITY = ['S', 'M', 'L', 'XL', 'XXL'];
+const SIZE_PRIORITY = ['XS', 'S', 'M', 'L', 'XL', 'XXL'];
 
 export default function Product() {
   const { slug } = useParams();
