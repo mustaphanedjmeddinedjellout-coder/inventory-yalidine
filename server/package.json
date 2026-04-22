@@ -13,10 +13,10 @@
   },
   "dependencies": {
     "@libsql/client": "^0.17.0",
-    "cloudinary": "^2.6.1",
     "cors": "^2.8.5",
     "dotenv": "^16.4.7",
     "express": "^4.21.2",
+    "imagekit": "^5.0.0",
     "multer": "^1.4.5-lts.1",
     "uuid": "^11.1.0"
   },

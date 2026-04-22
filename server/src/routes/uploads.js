@@ -2,7 +2,7 @@ const express = require('express');
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
-const { v2: cloudinary } = require('cloudinary');
+const ImageKit = require('imagekit');
 const { success, error } = require('../utils/response');
 
 const router = express.Router();
@@ -12,19 +12,19 @@ if (!fs.existsSync(uploadDir)) {
   fs.mkdirSync(uploadDir, { recursive: true });
 }
 
-const hasCloudinary = Boolean(
-  process.env.CLOUDINARY_CLOUD_NAME
-  && process.env.CLOUDINARY_API_KEY
-  && process.env.CLOUDINARY_API_SECRET
+const hasImageKit = Boolean(
+  process.env.IMAGEKIT_PUBLIC_KEY
+  && process.env.IMAGEKIT_PRIVATE_KEY
+  && process.env.IMAGEKIT_URL_ENDPOINT
 );
 
-if (hasCloudinary) {
-  cloudinary.config({
-    cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
-    api_key: process.env.CLOUDINARY_API_KEY,
-    api_secret: process.env.CLOUDINARY_API_SECRET,
-  });
-}
+const imageKit = hasImageKit
+  ? new ImageKit({
+    publicKey: process.env.IMAGEKIT_PUBLIC_KEY,
+    privateKey: process.env.IMAGEKIT_PRIVATE_KEY,
+    urlEndpoint: process.env.IMAGEKIT_URL_ENDPOINT,
+  })
+  : null;
 
 const storage = multer.diskStorage({
   destination: uploadDir,
@@ -39,7 +39,7 @@ const storage = multer.diskStorage({
 const memoryStorage = multer.memoryStorage();
 
 const upload = multer({
-  storage: hasCloudinary ? memoryStorage : storage,
+  storage: hasImageKit ? memoryStorage : storage,
   limits: { fileSize: 12 * 1024 * 1024 },
   fileFilter: (req, file, cb) => {
     if (!file.mimetype || !file.mimetype.startsWith('image/')) {
@@ -49,22 +49,17 @@ const upload = multer({
   },
 });
 
-function uploadBufferToCloudinary(fileBuffer, mimetype) {
-  return new Promise((resolve, reject) => {
-    const folder = process.env.CLOUDINARY_FOLDER || 'inventory-yalidine/products';
-    const stream = cloudinary.uploader.upload_stream(
-      {
-        folder,
-        resource_type: 'image',
-        format: mimetype === 'image/png' ? 'png' : undefined,
-      },
-      (err, result) => {
-        if (err) return reject(err);
-        return resolve(result);
-      }
-    );
-
-    stream.end(fileBuffer);
+async function uploadBufferToImageKit(fileBuffer, originalName) {
+  if (!imageKit) throw new Error('ImageKit is not configured.');
+  const folder = process.env.IMAGEKIT_FOLDER || '/inventory-yalidine/products';
+  const ext = path.extname(originalName || '').toLowerCase();
+  const safeExt = ext && ext.length <= 10 ? ext : '';
+  const fileName = `${Date.now()}-${Math.round(Math.random() * 1e9)}${safeExt}`;
+  return imageKit.upload({
+    file: fileBuffer,
+    fileName,
+    folder,
+    useUniqueFileName: true,
   });
 }
 
@@ -74,12 +69,12 @@ router.post('/', upload.single('file'), async (req, res) => {
   }
 
   try {
-    if (hasCloudinary) {
-      const result = await uploadBufferToCloudinary(req.file.buffer, req.file.mimetype);
+    if (hasImageKit) {
+      const result = await uploadBufferToImageKit(req.file.buffer, req.file.originalname);
       return success(res, {
-        path: result.secure_url,
-        filename: result.public_id,
-        storage: 'cloudinary',
+        path: result.url,
+        filename: result.fileId,
+        storage: 'imagekit',
       });
     }
 
