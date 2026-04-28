@@ -1,9 +1,40 @@
-import { Link, useParams } from 'react-router-dom';
+import { useEffect } from 'react';
+import { Link, useLocation, useParams } from 'react-router-dom';
 import { Instagram } from 'lucide-react';
+
+const PURCHASE_EVENT_STORAGE_PREFIX = 'meta-purchase-fired:';
 
 export default function OrderSuccess() {
   const { id } = useParams();
+  const location = useLocation();
+  const purchaseEvent = location.state?.purchaseEvent;
   const instagramUrl = (import.meta.env.VITE_INSTAGRAM_URL || 'https://www.instagram.com/noire.luxewear/').trim();
+
+  useEffect(() => {
+    if (typeof window === 'undefined' || !window.fbq || !purchaseEvent) return;
+
+    const orderId = String(purchaseEvent.orderId || id || '').trim();
+    if (!orderId) return;
+
+    const storageKey = `${PURCHASE_EVENT_STORAGE_PREFIX}${orderId}`;
+    if (window.sessionStorage.getItem(storageKey)) return;
+
+    window.fbq(
+      'track',
+      'Purchase',
+      {
+        currency: 'DZD',
+        value: Number(purchaseEvent.value || 0),
+        content_type: 'product',
+        content_ids: Array.isArray(purchaseEvent.contentIds) ? purchaseEvent.contentIds : [],
+        num_items: Number(purchaseEvent.numItems || 0),
+        order_id: orderId,
+      },
+      { eventID: orderId }
+    );
+
+    window.sessionStorage.setItem(storageKey, '1');
+  }, [id, purchaseEvent]);
 
   return (
     <div className="container-bleed py-20 text-center">

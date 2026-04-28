@@ -37,10 +37,6 @@ export default function Checkout() {
       .replace(/\D/g, '');
   }
 
-  function createEventId() {
-    return `purchase-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
-  }
-
   function scrollToField(fieldId) {
     if (typeof window === 'undefined') return;
     requestAnimationFrame(() => {
@@ -201,7 +197,6 @@ export default function Checkout() {
     setError('');
 
     try {
-      const eventId = createEventId();
       const eventSourceUrl = typeof window !== 'undefined' ? window.location.href : '';
       const payload = {
         customer: {
@@ -209,7 +204,6 @@ export default function Checkout() {
           phone: normalizedPhone,
           wilaya: form.wilayaName,
           commune: form.communeName,
-          eventId,
           eventSourceUrl,
           address: form.deliveryMethod === 'stopdesk'
             ? `${form.centerName} - Bureau Yalidine`
@@ -228,25 +222,18 @@ export default function Checkout() {
       };
 
       const result = await submitCheckout(payload);
-      const orderRef = result.orderNumber || result.orderId || 'order';
-
-      if (typeof window !== 'undefined' && window.fbq) {
-        window.fbq(
-          'track',
-          'Purchase',
-          {
-            currency: 'DZD',
-            value: Number(total.toFixed(2)),
-            content_type: 'product',
-            content_ids: items.map((item) => String(item.productId)),
-            num_items: items.reduce((sum, item) => sum + Number(item.quantity || 0), 0),
-          },
-          { eventID: eventId }
-        );
-      }
+      const orderRef = String(result.orderNumber || result.orderId || 'order');
+      const purchaseEvent = {
+        orderId: orderRef,
+        value: Number(total.toFixed(2)),
+        contentIds: items.map((item) => String(item.productId)),
+        numItems: items.reduce((sum, item) => sum + Number(item.quantity || 0), 0),
+      };
 
       clearCart();
-      navigate(`/order-success/${orderRef}`);
+      navigate(`/order-success/${encodeURIComponent(orderRef)}`, {
+        state: { purchaseEvent },
+      });
     } catch (err) {
       setError(err.message || 'فشل إتمام الطلب');
     } finally {

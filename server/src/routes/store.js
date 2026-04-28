@@ -117,7 +117,7 @@ router.post('/checkout', storeApiKey, async (req, res) => {
 
     const order = await orderService.create(orderInput);
 
-    const eventId = customer.eventId || `purchase-${order.order_number}`;
+    const eventId = String(order.order_number || '');
     const eventSourceUrl = req.get('origin') || req.get('referer') || '';
     const userData = metaCapi.buildUserData({
       firstname,
@@ -134,8 +134,8 @@ router.post('/checkout', storeApiKey, async (req, res) => {
       user: userData,
       customData: {
         currency: 'DZD',
-        value: Number(order.total_amount || 0) + deliveryPrice,
-        order_id: order.order_number,
+        value: Number(order.total_amount || 0),
+        order_id: eventId,
         contents: order.items.map((item) => ({
           id: item.product_id,
           quantity: item.quantity,
