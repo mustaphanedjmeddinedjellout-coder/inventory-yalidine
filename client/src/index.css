@@ -154,6 +154,43 @@ body {
   padding: 3rem 0 5rem;
 }
 
+@media (max-width: 639px) {
+  .hero {
+    padding: 0.75rem 0 0.5rem;
+  }
+
+  .hero-stack {
+    gap: 0.45rem;
+    padding: 0.8rem 0 0.9rem;
+  }
+
+  .hero-badge {
+    max-width: 100%;
+    padding: 0.35rem 0.75rem;
+    font-size: 0.5rem;
+    letter-spacing: 0.16em;
+  }
+
+  .hero-title {
+    font-size: clamp(1.85rem, 10vw, 2.35rem);
+    line-height: 0.95;
+  }
+
+  .hero-subtitle,
+  .hero-delivery {
+    font-size: 0.72rem;
+  }
+
+  .hero .btn-primary {
+    padding: 0.65rem 1.15rem;
+    font-size: 0.68rem;
+  }
+
+  .section-block {
+    padding: 1.25rem 0 4rem;
+  }
+}
+
 .field-block label {
   display: block;
   font-size: 0.7rem;
