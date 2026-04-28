@@ -86,8 +86,48 @@ app.use((err, req, res, next) => {
 // Serve frontend in production
 const clientDist = path.join(__dirname, '..', '..', 'client', 'dist');
 if (fs.existsSync(clientDist)) {
-  app.use(express.static(clientDist));
+  const assetsDir = path.join(clientDist, 'assets');
+
+  app.use(express.static(clientDist, {
+    setHeaders(res, filePath) {
+      if (filePath.endsWith('index.html')) {
+        res.setHeader('Cache-Control', 'no-store, max-age=0, must-revalidate');
+        return;
+      }
+
+      if (filePath.includes(`${path.sep}assets${path.sep}`)) {
+        res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+      }
+    },
+  }));
+
+  app.get('/assets/:file', (req, res, next) => {
+    const requestedFile = req.params.file || '';
+    const ext = path.extname(requestedFile);
+    if (!/^index-[\w-]+\.(js|css)$/.test(requestedFile) || !fs.existsSync(assetsDir)) {
+      return next();
+    }
+
+    const candidates = fs.readdirSync(assetsDir)
+      .filter((file) => file.startsWith('index-') && path.extname(file) === ext)
+      .map((file) => {
+        const filePath = path.join(assetsDir, file);
+        return { filePath, mtimeMs: fs.statSync(filePath).mtimeMs };
+      })
+      .sort((a, b) => b.mtimeMs - a.mtimeMs);
+
+    if (candidates.length === 0) return next();
+
+    res.setHeader('Cache-Control', 'no-store, max-age=0, must-revalidate');
+    return res.sendFile(candidates[0].filePath);
+  });
+
+  app.get('/assets/*', (req, res) => {
+    res.status(404).type('text/plain').send('Asset not found');
+  });
+
   app.get('*', (req, res) => {
+    res.setHeader('Cache-Control', 'no-store, max-age=0, must-revalidate');
     res.sendFile(path.join(clientDist, 'index.html'));
   });
 }
