@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { fetchProducts } from '../api';
 import ProductCard from '../components/ProductCard';
@@ -38,14 +38,6 @@ export default function Home() {
     return () => window.clearTimeout(timer);
   }, []);
 
-  const shuffledProducts = useMemo(() => {
-    const items = [...products];
-    for (let i = items.length - 1; i > 0; i -= 1) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [items[i], items[j]] = [items[j], items[i]];
-    }
-    return items;
-  }, [products]);
 
   return (
     <div>
@@ -68,7 +60,7 @@ export default function Home() {
 
           {!loading && !error && (
             <div className="grid grid-cols-2 gap-x-4 gap-y-8 sm:grid-cols-3 lg:grid-cols-4">
-              {shuffledProducts.map((product) => (
+              {products.map((product) => (
                 <ProductCard key={product.id} product={product} />
               ))}
             </div>
