@@ -77,7 +77,7 @@ export default function Cart() {
         to="/checkout"
         className="btn-primary fixed bottom-[calc(env(safe-area-inset-bottom)+16px)] left-4 right-4 z-40 inline-flex justify-center sm:static sm:left-auto sm:right-auto sm:bottom-auto sm:mt-6 sm:w-full"
       >
-        تأكيد الطلب
+        اتمام الطلب
       </Link>
     </div>
   );
