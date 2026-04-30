@@ -161,7 +161,6 @@ router.post('/checkout', storeApiKey, async (req, res) => {
     });
 
     const eventTime = Math.floor(Date.now() / 1000);
-    const firstItem = order.items[0] || {};
     const contents = order.items.map((item) => ({
       content_id: String(item.product_id),
       content_type: 'product',
@@ -169,14 +168,19 @@ router.post('/checkout', storeApiKey, async (req, res) => {
       price: Number(item.selling_price || 0),
       quantity: Number(item.quantity || 0),
     }));
+    const contentIds = contents.map((item) => item.content_id).filter(Boolean);
+    const firstContentId = contentIds[0] || null;
+    const firstContentName = contents[0]?.content_name || undefined;
 
     const tiktokBase = {
       currency: 'DZD',
       value: Number(order.total_amount || 0),
       content_type: 'product',
-      content_id: firstItem.product_id != null ? String(firstItem.product_id) : undefined,
-      content_name: firstItem.product_name || undefined,
+      content_id: firstContentId || undefined,
+      content_ids: contentIds.length ? contentIds : undefined,
+      content_name: firstContentName,
       contents,
+      num_items: contents.reduce((sum, item) => sum + Number(item.quantity || 0), 0),
       url: eventSourceUrl || undefined,
     };
 
