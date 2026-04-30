@@ -30,6 +30,42 @@ export default function Checkout() {
   const [deliveryPrice, setDeliveryPrice] = useState(0);
   const total = useMemo(() => subtotal + deliveryPrice, [subtotal, deliveryPrice]);
 
+  function getCookieValue(name) {
+    if (typeof document === 'undefined') return '';
+    const cookies = document.cookie ? document.cookie.split('; ') : [];
+    for (const cookie of cookies) {
+      const [key, ...rest] = cookie.split('=');
+      if (key === name) {
+        return decodeURIComponent(rest.join('='));
+      }
+    }
+    return '';
+  }
+
+  function getTikTokTracking() {
+    if (typeof window === 'undefined') return { ttclid: '', ttp: '' };
+    const params = new URLSearchParams(window.location.search || '');
+    const ttclidFromUrl = params.get('ttclid') || '';
+    if (ttclidFromUrl) {
+      try {
+        localStorage.setItem('ttclid', ttclidFromUrl);
+      } catch {
+        // Ignore storage errors.
+      }
+    }
+    let storedTtclid = '';
+    try {
+      storedTtclid = localStorage.getItem('ttclid') || '';
+    } catch {
+      storedTtclid = '';
+    }
+    const ttp = getCookieValue('_ttp');
+    return {
+      ttclid: ttclidFromUrl || storedTtclid || '',
+      ttp: ttp || '',
+    };
+  }
+
   function normalizePhoneDigits(value) {
     return String(value || '')
       .replace(/[\u0660-\u0669]/g, (d) => String(d.charCodeAt(0) - 0x0660))
@@ -198,6 +234,7 @@ export default function Checkout() {
 
     try {
       const eventSourceUrl = typeof window !== 'undefined' ? window.location.href : '';
+      const tiktokTracking = getTikTokTracking();
       const payload = {
         customer: {
           name: form.name,
@@ -205,6 +242,8 @@ export default function Checkout() {
           wilaya: form.wilayaName,
           commune: form.communeName,
           eventSourceUrl,
+          ttclid: tiktokTracking.ttclid,
+          ttp: tiktokTracking.ttp,
           address: form.deliveryMethod === 'stopdesk'
             ? `${form.centerName} - Bureau Yalidine`
             : form.address,

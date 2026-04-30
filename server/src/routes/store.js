@@ -5,6 +5,7 @@ const orderService = require('../services/orderService');
 const storeApiKey = require('../middleware/storeApiKey');
 const { success, error } = require('../utils/response');
 const metaCapi = require('../services/metaCapi');
+const tiktokCapi = require('../services/tiktokCapi');
 
 async function fetchVariants(productId) {
   const variantsResult = await db.execute({
@@ -118,7 +119,7 @@ router.post('/checkout', storeApiKey, async (req, res) => {
     const order = await orderService.create(orderInput);
 
     const eventId = String(order.order_number || '');
-    const eventSourceUrl = req.get('origin') || req.get('referer') || '';
+    const eventSourceUrl = customer.eventSourceUrl || req.get('origin') || req.get('referer') || '';
     const userData = metaCapi.buildUserData({
       firstname,
       familyname,
@@ -148,6 +149,53 @@ router.post('/checkout', storeApiKey, async (req, res) => {
     }).catch((err) => {
       console.error('Meta CAPI error:', err.message);
     });
+
+    const tiktokUser = tiktokCapi.buildUserData({
+      firstname,
+      familyname,
+      phone: customer.phone,
+      email: customer.email,
+      ttclid: customer.ttclid,
+      ttp: customer.ttp,
+      externalId: customer.phone,
+    });
+
+    const eventTime = Math.floor(Date.now() / 1000);
+    const firstItem = order.items[0] || {};
+    const contents = order.items.map((item) => ({
+      content_id: String(item.product_id),
+      content_type: 'product',
+      content_name: item.product_name,
+      price: Number(item.selling_price || 0),
+      quantity: Number(item.quantity || 0),
+    }));
+
+    const tiktokBase = {
+      currency: 'DZD',
+      value: Number(order.total_amount || 0),
+      content_type: 'product',
+      content_id: firstItem.product_id != null ? String(firstItem.product_id) : undefined,
+      content_name: firstItem.product_name || undefined,
+      contents,
+      url: eventSourceUrl || undefined,
+    };
+
+    const tiktokEvents = ['InitiateCheckout', 'PlaceAnOrder', 'Purchase'];
+    await Promise.all(tiktokEvents.map((eventName) => (
+      tiktokCapi.sendEvent({
+        eventName,
+        eventTime,
+        eventId: `${eventId}-${eventName}`,
+        user: tiktokUser,
+        properties: tiktokBase,
+        eventSourceUrl,
+        clientIp: req.ip,
+        userAgent: req.get('user-agent') || '',
+        referrer: req.get('referer') || '',
+      }).catch((err) => {
+        console.error('TikTok Events API error:', err.message);
+      })
+    )));
 
     success(res, {
       orderId: order.id,
