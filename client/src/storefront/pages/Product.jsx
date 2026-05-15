@@ -412,10 +412,10 @@ export default function Product() {
   }
 
   return (
-    <div className="container-bleed py-8 pb-32 sm:pb-12">
-      <div className="grid gap-8 lg:grid-cols-2">
+    <div className="container-bleed py-4 pb-28 sm:py-8 sm:pb-12">
+      <div className="grid gap-6 lg:gap-8 lg:grid-cols-2">
         <div>
-          <div className="relative mx-auto aspect-[4/5] w-full max-w-115 overflow-hidden bg-[#efeae2] max-h-[52vh] sm:aspect-3/4 sm:max-h-none">
+          <div className="relative mx-auto aspect-[4/5] w-full max-w-115 overflow-hidden bg-[#f5f1ea] max-h-[58vh] sm:aspect-3/4 sm:max-h-none">
             <div
               className={`h-full w-full relative ${isDragging && !isColorDragging ? '' : 'transition-transform duration-300 ease-out'}`}
               style={{ transform: `translateX(${isColorDragging ? colorDragOffsetX : dragOffsetX}px)` }}
@@ -442,7 +442,7 @@ export default function Product() {
                 loading="eager"
                 fetchPriority="high"
                 decoding="async"
-                className="h-full w-full object-cover"
+                className="h-full w-full object-contain sm:object-cover"
                 onTouchStart={handleImageTouchStart}
                 onTouchMove={handleImageTouchMove}
                 onTouchEnd={handleImageTouchEnd}
@@ -469,32 +469,6 @@ export default function Product() {
                 >
                   <ChevronRight size={14} />
                 </button>
-              </>
-            )}
-
-            {/* Color navigation arrows - show when at image boundaries and multiple colors */}
-            {colors.length > 1 && currentColorImages.length <= 1 && (
-              <>
-                {activeImageIndex === 0 && colors.findIndex((c) => normalizeText(selectedColor) === c.value) > 0 && (
-                  <button
-                    type="button"
-                    aria-label="Previous color"
-                    onClick={() => goToRelativeColor(-1)}
-                    className="pointer-events-auto absolute left-3 top-1/2 z-10 inline-flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full border border-white/30 bg-black/20 text-white shadow-[0_8px_24px_rgba(0,0,0,0.25)] backdrop-blur-md transition hover:bg-black/30"
-                  >
-                    <ChevronLeft size={18} />
-                  </button>
-                )}
-                {(activeImageIndex === currentColorImages.length - 1 || currentColorImages.length <= 1) && colors.findIndex((c) => normalizeText(selectedColor) === c.value) < colors.length - 1 && (
-                  <button
-                    type="button"
-                    aria-label="Next color"
-                    onClick={() => goToRelativeColor(1)}
-                    className="pointer-events-auto absolute right-3 top-1/2 z-10 inline-flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full border border-white/30 bg-black/20 text-white shadow-[0_8px_24px_rgba(0,0,0,0.25)] backdrop-blur-md transition hover:bg-black/30"
-                  >
-                    <ChevronRight size={18} />
-                  </button>
-                )}
 
                 <div className="pointer-events-none absolute inset-x-0 bottom-4 z-10 flex items-center justify-center">
                   <div className="flex items-center gap-1.5 rounded-full bg-black/10 px-2 py-1 backdrop-blur-sm">
@@ -506,6 +480,28 @@ export default function Product() {
                     ))}
                   </div>
                 </div>
+              </>
+            )}
+
+            {/* Color navigation arrows - always show when multiple colors */}
+            {colors.length > 1 && (
+              <>
+                <button
+                  type="button"
+                  aria-label="Previous color"
+                  onClick={() => goToRelativeColor(-1)}
+                  className="pointer-events-auto absolute left-3 top-1/3 z-10 inline-flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full border border-white/40 bg-black/25 text-white shadow-[0_8px_24px_rgba(0,0,0,0.3)] backdrop-blur-md transition hover:bg-black/40 hover:scale-105"
+                >
+                  <ChevronLeft size={20} />
+                </button>
+                <button
+                  type="button"
+                  aria-label="Next color"
+                  onClick={() => goToRelativeColor(1)}
+                  className="pointer-events-auto absolute right-3 top-1/3 z-10 inline-flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full border border-white/40 bg-black/25 text-white shadow-[0_8px_24px_rgba(0,0,0,0.3)] backdrop-blur-md transition hover:bg-black/40 hover:scale-105"
+                >
+                  <ChevronRight size={20} />
+                </button>
               </>
             )}
 
@@ -558,17 +554,16 @@ export default function Product() {
 
         <div className="space-y-4">
           <div>
-            <p className="text-[11px] uppercase tracking-[0.3em] text-black/40">المخزون المتاح</p>
-            <h1 className="text-3xl font-display text-ink mt-3">{product.model_name}</h1>
+            <h1 className="text-2xl sm:text-3xl font-display text-ink leading-tight">{product.model_name}</h1>
             <div className="mt-2 flex items-baseline gap-2">
-              <p className="text-[16px] text-black/60">{formatDzd(effectivePrice)}</p>
+              <p className="text-[18px] sm:text-[16px] font-semibold text-ink">{formatDzd(effectivePrice)}</p>
               {promotionPrice ? <p className="text-[13px] text-black/35 line-through">{formatDzd(product.selling_price)}</p> : null}
+              {promotionPrice && (
+                <span className="inline-flex items-center gap-1 rounded-full bg-red-50 px-2 py-0.5 text-[11px] font-semibold text-red-600">
+                  -{Math.round(((product.selling_price - promotionPrice) / product.selling_price) * 100)}%
+                </span>
+              )}
             </div>
-            {promotionPrice && (
-              <div className="mt-1.5 inline-flex items-center gap-1 rounded-full bg-red-50 px-2.5 py-0.5 text-[11px] font-semibold text-red-600">
-                خصم {Math.round(((product.selling_price - promotionPrice) / product.selling_price) * 100)}%
-              </div>
-            )}
           </div>
 
           <TrustStrip />
@@ -653,9 +648,13 @@ export default function Product() {
               disabled={!selectedVariant || maxQuantity <= 0}
               onClick={onAdd}
             >
-              اطلب الآن - الدفع عند الاستلام
+              <span className="sm:hidden flex items-center justify-between w-full px-1">
+                <span className="text-[13px] font-semibold">{formatDzd(effectivePrice)}</span>
+                <span className="text-[14px] font-bold">اطلب الآن</span>
+              </span>
+              <span className="hidden sm:inline">اطلب الآن - الدفع عند الاستلام</span>
             </button>
-            <p className="text-[12px] font-semibold text-black/60">🔥 Stock limité aujourd'hui</p>
+            <p className="hidden sm:block text-[12px] font-semibold text-black/60">🔥 Stock limité aujourd'hui</p>
           </div>
 
           {product.description && (
