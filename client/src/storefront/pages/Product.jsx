@@ -32,6 +32,8 @@ export default function Product() {
   const touchStartRef = useRef({ x: 0, y: 0 });
   const [dragOffsetX, setDragOffsetX] = useState(0);
   const [isDragging, setIsDragging] = useState(false);
+  const [colorDragOffsetX, setColorDragOffsetX] = useState(0);
+  const [isColorDragging, setIsColorDragging] = useState(false);
 
   useEffect(() => {
     const id = extractIdFromSlug(slug || '');
@@ -181,12 +183,24 @@ export default function Product() {
     setActiveImageIndex((prev) => (prev + step + currentColorImages.length) % currentColorImages.length);
   }
 
+  function goToRelativeColor(step) {
+    if (colors.length < 2) return;
+    const currentColorIndex = colors.findIndex((c) => normalizeText(selectedColor) === c.value);
+    const nextColorIndex = (currentColorIndex + step + colors.length) % colors.length;
+    const nextColor = colors[nextColorIndex];
+    if (nextColor) {
+      applyColorSelection(nextColor);
+    }
+  }
+
   function handleImageTouchStart(event) {
     const touch = event.touches?.[0];
     if (!touch) return;
     touchStartRef.current = { x: touch.clientX, y: touch.clientY };
     setIsDragging(true);
+    setIsColorDragging(false);
     setDragOffsetX(0);
+    setColorDragOffsetX(0);
   }
 
   function handleImageTouchMove(event) {
@@ -200,21 +214,64 @@ export default function Product() {
       event.preventDefault();
     }
 
-    const limitedOffset = Math.max(-90, Math.min(90, deltaX));
-    setDragOffsetX(limitedOffset);
+    // Check if at boundaries and can switch colors
+    const atFirstImage = activeImageIndex === 0;
+    const atLastImage = activeImageIndex === currentColorImages.length - 1 || currentColorImages.length <= 1;
+    const tryingGoPrev = deltaX > 0;
+    const tryingGoNext = deltaX < 0;
+
+    // If at boundary and multiple colors, show color transition preview
+    if (colors.length > 1 && ((atFirstImage && tryingGoPrev) || (atLastImage && tryingGoNext))) {
+      setIsColorDragging(true);
+      const limitedOffset = Math.max(-120, Math.min(120, deltaX));
+      setColorDragOffsetX(limitedOffset);
+      setDragOffsetX(0);
+    } else {
+      setIsColorDragging(false);
+      const limitedOffset = Math.max(-90, Math.min(90, deltaX));
+      setDragOffsetX(limitedOffset);
+      setColorDragOffsetX(0);
+    }
   }
 
   function handleImageTouchEnd(event) {
     const touch = event.changedTouches?.[0];
     if (!touch) {
       setIsDragging(false);
+      setIsColorDragging(false);
       setDragOffsetX(0);
+      setColorDragOffsetX(0);
       return;
     }
 
     const deltaX = touch.clientX - touchStartRef.current.x;
     const deltaY = touch.clientY - touchStartRef.current.y;
     setIsDragging(false);
+
+    // Handle color swipe at boundaries
+    if (isColorDragging && colors.length > 1) {
+      const atFirstImage = activeImageIndex === 0;
+      const atLastImage = activeImageIndex === currentColorImages.length - 1 || currentColorImages.length <= 1;
+      
+      if (Math.abs(deltaX) > 60) {
+        if (deltaX < 0 && atLastImage) {
+          // Swipe left at last image → next color
+          setColorDragOffsetX(0);
+          setIsColorDragging(false);
+          goToRelativeColor(1);
+          return;
+        } else if (deltaX > 0 && atFirstImage) {
+          // Swipe right at first image → previous color
+          setColorDragOffsetX(0);
+          setIsColorDragging(false);
+          goToRelativeColor(-1);
+          return;
+        }
+      }
+    }
+
+    setColorDragOffsetX(0);
+    setIsColorDragging(false);
     setDragOffsetX(0);
 
     if (Math.abs(deltaX) < 40 || Math.abs(deltaX) < Math.abs(deltaY)) {
@@ -360,9 +417,24 @@ export default function Product() {
         <div>
           <div className="relative mx-auto aspect-[4/5] w-full max-w-115 overflow-hidden bg-[#efeae2] max-h-[52vh] sm:aspect-3/4 sm:max-h-none">
             <div
-              className={`h-full w-full ${isDragging ? '' : 'transition-transform duration-300 ease-out'}`}
-              style={{ transform: `translateX(${dragOffsetX}px)` }}
+              className={`h-full w-full relative ${isDragging && !isColorDragging ? '' : 'transition-transform duration-300 ease-out'}`}
+              style={{ transform: `translateX(${isColorDragging ? colorDragOffsetX : dragOffsetX}px)` }}
             >
+              {/* Color peek preview indicators */}
+              {isColorDragging && colorDragOffsetX !== 0 && colors.length > 1 && (
+                <>
+                  {colorDragOffsetX > 30 && colors.findIndex((c) => normalizeText(selectedColor) === c.value) > 0 && (
+                    <div className="absolute left-0 top-0 h-full w-20 flex items-center justify-center bg-gradient-to-r from-black/10 to-transparent z-20 pointer-events-none">
+                      <ChevronLeft size={32} className="text-white/80 drop-shadow-lg" />
+                    </div>
+                  )}
+                  {colorDragOffsetX < -30 && colors.findIndex((c) => normalizeText(selectedColor) === c.value) < colors.length - 1 && (
+                    <div className="absolute right-0 top-0 h-full w-20 flex items-center justify-center bg-gradient-to-l from-black/10 to-transparent z-20 pointer-events-none">
+                      <ChevronRight size={32} className="text-white/80 drop-shadow-lg" />
+                    </div>
+                  )}
+                </>
+              )}
               <SmartImage
                 key={displayImage}
                 src={resolveImageUrl(displayImage)}
@@ -377,6 +449,7 @@ export default function Product() {
               />
             </div>
 
+            {/* Image navigation arrows - show when multiple images */}
             {currentColorImages.length > 1 && (
               <>
                 <button
@@ -396,6 +469,32 @@ export default function Product() {
                 >
                   <ChevronRight size={14} />
                 </button>
+              </>
+            )}
+
+            {/* Color navigation arrows - show when at image boundaries and multiple colors */}
+            {colors.length > 1 && currentColorImages.length <= 1 && (
+              <>
+                {activeImageIndex === 0 && colors.findIndex((c) => normalizeText(selectedColor) === c.value) > 0 && (
+                  <button
+                    type="button"
+                    aria-label="Previous color"
+                    onClick={() => goToRelativeColor(-1)}
+                    className="pointer-events-auto absolute left-3 top-1/2 z-10 inline-flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full border border-white/30 bg-black/20 text-white shadow-[0_8px_24px_rgba(0,0,0,0.25)] backdrop-blur-md transition hover:bg-black/30"
+                  >
+                    <ChevronLeft size={18} />
+                  </button>
+                )}
+                {(activeImageIndex === currentColorImages.length - 1 || currentColorImages.length <= 1) && colors.findIndex((c) => normalizeText(selectedColor) === c.value) < colors.length - 1 && (
+                  <button
+                    type="button"
+                    aria-label="Next color"
+                    onClick={() => goToRelativeColor(1)}
+                    className="pointer-events-auto absolute right-3 top-1/2 z-10 inline-flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full border border-white/30 bg-black/20 text-white shadow-[0_8px_24px_rgba(0,0,0,0.25)] backdrop-blur-md transition hover:bg-black/30"
+                  >
+                    <ChevronRight size={18} />
+                  </button>
+                )}
 
                 <div className="pointer-events-none absolute inset-x-0 bottom-4 z-10 flex items-center justify-center">
                   <div className="flex items-center gap-1.5 rounded-full bg-black/10 px-2 py-1 backdrop-blur-sm">
@@ -413,6 +512,24 @@ export default function Product() {
             <div className="absolute top-3 right-3 z-10 rounded-full bg-black/10 px-2.5 py-0.5 text-[11px] text-white backdrop-blur-sm">
               {activeImageIndex + 1} / {currentColorImages.length || 1}
             </div>
+
+            {/* Color pagination dots - show when multiple colors */}
+            {colors.length > 1 && (
+              <div className="pointer-events-none absolute inset-x-0 bottom-12 z-10 flex items-center justify-center">
+                <div className="flex items-center gap-1.5 rounded-full bg-black/20 px-3 py-1.5 backdrop-blur-sm">
+                  {colors.map((color, idx) => {
+                    const isActive = normalizeText(selectedColor) === color.value;
+                    return (
+                      <span
+                        key={color.value}
+                        className={`block rounded-full transition-all ${isActive ? 'h-2 w-6 bg-white' : 'h-2 w-2 bg-white/50'}`}
+                        title={color.label}
+                      />
+                    );
+                  })}
+                </div>
+              </div>
+            )}
           </div>
 
           {currentColorImages.length > 1 && (
