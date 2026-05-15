@@ -6,6 +6,7 @@
 const express = require('express');
 const router = express.Router();
 const orderService = require('../services/orderService');
+const metaCapi = require('../services/metaCapi');
 const { success, error } = require('../utils/response');
 
 // GET /api/orders - List orders with optional date filters
@@ -49,6 +50,42 @@ router.post('/', async (req, res) => {
 router.post('/:id/approve', async (req, res) => {
   try {
     const order = await orderService.approve(parseInt(req.params.id));
+
+    // Fire Meta CAPI Purchase event for the CONFIRMED order.
+    // Uses a distinct event_id (-confirmed suffix) so it is NOT deduplicated
+    // against the initial checkout Purchase event.
+    const eventId = `${String(order.order_number || order.id)}-confirmed`;
+    const userData = metaCapi.buildUserData({
+      firstname: order.firstname,
+      familyname: order.familyname,
+      phone: order.contact_phone,
+      wilaya: order.to_wilaya_name,
+      commune: order.to_commune_name,
+    });
+
+    metaCapi.sendEvent({
+      eventName: 'Purchase',
+      eventTime: Math.floor(Date.now() / 1000),
+      eventId,
+      user: userData,
+      customData: {
+        currency: 'DZD',
+        value: Number(order.total_amount || order.yalidine_price || 0),
+        order_id: String(order.order_number || order.id),
+        order_status: 'confirmed',
+        contents: (order.items || []).map((item) => ({
+          id: item.product_id,
+          quantity: item.quantity,
+          item_price: item.selling_price,
+        })),
+      },
+      eventSourceUrl: req.get('origin') || req.get('referer') || '',
+      clientIp: req.ip,
+      userAgent: req.get('user-agent') || '',
+    }).catch((err) => {
+      console.error('Meta CAPI (confirmed Purchase) error:', err.message);
+    });
+
     success(res, order);
   } catch (err) {
     error(res, err.message, 400);
