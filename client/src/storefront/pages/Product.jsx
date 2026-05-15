@@ -28,6 +28,7 @@ export default function Product() {
   const [selectedColor, setSelectedColor] = useState('');
   const [selectedSize, setSelectedSize] = useState('');
   const [quantity, setQuantity] = useState(1);
+  const [activeImageIndex, setActiveImageIndex] = useState(0);
   const touchStartRef = useRef({ x: 0, y: 0 });
   const [dragOffsetX, setDragOffsetX] = useState(0);
   const [isDragging, setIsDragging] = useState(false);
@@ -131,16 +132,27 @@ export default function Product() {
     )?.image || '';
   }, [availableVariants, selectedColor]);
 
+  const currentColorImages = useMemo(() => {
+    const colorKey = normalizeText(selectedColor);
+    const extraImages = product?.color_images?.[colorKey] || [];
+    const variantImage = selectedColorImage;
+    if (extraImages.length > 0) return extraImages;
+    if (variantImage) return [variantImage];
+    if (product?.image) return [product.image];
+    return [];
+  }, [product, selectedColor, selectedColorImage]);
+
+  useEffect(() => {
+    setActiveImageIndex(0);
+  }, [selectedColor]);
+
+  const displayImage = currentColorImages[activeImageIndex] || selectedColorImage || product?.image;
+
   const swipableColors = useMemo(() => {
     return colors.filter((color) =>
       availableVariants.some((v) => normalizeText(v.color) === color.value && v.quantity > 0)
     );
   }, [colors, availableVariants]);
-
-  const currentSwipeIndex = useMemo(() => {
-    if (!swipableColors.length) return -1;
-    return swipableColors.findIndex((color) => color.value === normalizeText(selectedColor));
-  }, [swipableColors, selectedColor]);
 
   function applyColorSelection(color) {
     if (!color) return;
@@ -164,16 +176,9 @@ export default function Product() {
     }
   }
 
-  function goToRelativeColor(step) {
-    if (swipableColors.length < 2) return;
-
-    const currentIndex = swipableColors.findIndex(
-      (color) => color.value === normalizeText(selectedColor)
-    );
-    if (currentIndex === -1) return;
-
-    const nextIndex = (currentIndex + step + swipableColors.length) % swipableColors.length;
-    applyColorSelection(swipableColors[nextIndex]);
+  function goToRelativeImage(step) {
+    if (currentColorImages.length < 2) return;
+    setActiveImageIndex((prev) => (prev + step + currentColorImages.length) % currentColorImages.length);
   }
 
   function handleImageTouchStart(event) {
@@ -217,9 +222,9 @@ export default function Product() {
     }
 
     if (deltaX < 0) {
-      goToRelativeColor(1);
+      goToRelativeImage(1);
     } else {
-      goToRelativeColor(-1);
+      goToRelativeImage(-1);
     }
   }
 
@@ -238,6 +243,15 @@ export default function Product() {
       uniqueImagePaths.add(product.image);
     }
 
+    const colorImagesMap = product?.color_images || {};
+    for (const urls of Object.values(colorImagesMap)) {
+      if (Array.isArray(urls)) {
+        for (const url of urls) {
+          if (url) uniqueImagePaths.add(url);
+        }
+      }
+    }
+
     const preloaders = [];
     for (const imagePath of uniqueImagePaths) {
       const img = new Image();
@@ -245,10 +259,9 @@ export default function Product() {
       img.src = resolveImageUrl(imagePath);
       preloaders.push(img);
     }
-  }, [availableVariants, product?.image]);
+  }, [availableVariants, product?.image, product?.color_images]);
 
   const maxQuantity = selectedVariant?.quantity || 0;
-  const displayImage = selectedVariant?.image || selectedColorImage || product?.image;
   const promotionPrice = getPromotionPrice(product);
   const effectivePrice = getEffectivePrice(product);
   const suggestedProducts = useMemo(() => {
@@ -319,7 +332,7 @@ export default function Product() {
       productId: String(product.id),
       variantId: String(selectedVariant.id),
       title: product.model_name,
-      image: resolveImageUrl(selectedVariant.image || selectedColorImage || product.image),
+      image: resolveImageUrl(displayImage || product.image),
       price: effectivePrice,
       size: selectedVariant.size,
       color: selectedVariant.color,
@@ -344,56 +357,85 @@ export default function Product() {
   return (
     <div className="container-bleed py-8 pb-32 sm:pb-12">
       <div className="grid gap-8 lg:grid-cols-2">
-        <div className="relative mx-auto aspect-[4/5] w-full max-w-115 overflow-hidden bg-[#efeae2] max-h-[52vh] sm:aspect-3/4 sm:max-h-none">
-          <div
-            className={`h-full w-full ${isDragging ? '' : 'transition-transform duration-300 ease-out'}`}
-            style={{ transform: `translateX(${dragOffsetX}px)` }}
-          >
-            <SmartImage
-              key={displayImage}
-              src={resolveImageUrl(displayImage)}
-              alt={product.model_name}
-              loading="eager"
-              fetchPriority="high"
-              decoding="async"
-              className="h-full w-full object-cover"
-              onTouchStart={handleImageTouchStart}
-              onTouchMove={handleImageTouchMove}
-              onTouchEnd={handleImageTouchEnd}
-            />
+        <div>
+          <div className="relative mx-auto aspect-[4/5] w-full max-w-115 overflow-hidden bg-[#efeae2] max-h-[52vh] sm:aspect-3/4 sm:max-h-none">
+            <div
+              className={`h-full w-full ${isDragging ? '' : 'transition-transform duration-300 ease-out'}`}
+              style={{ transform: `translateX(${dragOffsetX}px)` }}
+            >
+              <SmartImage
+                key={displayImage}
+                src={resolveImageUrl(displayImage)}
+                alt={product.model_name}
+                loading="eager"
+                fetchPriority="high"
+                decoding="async"
+                className="h-full w-full object-cover"
+                onTouchStart={handleImageTouchStart}
+                onTouchMove={handleImageTouchMove}
+                onTouchEnd={handleImageTouchEnd}
+              />
+            </div>
+
+            {currentColorImages.length > 1 && (
+              <>
+                <button
+                  type="button"
+                  aria-label="Previous image"
+                  onClick={() => goToRelativeImage(-1)}
+                  className="pointer-events-auto absolute left-3 top-1/2 z-10 inline-flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-full border border-white/25 bg-black/15 text-white/80 shadow-[0_8px_24px_rgba(0,0,0,0.18)] backdrop-blur-md transition hover:bg-black/25"
+                >
+                  <ChevronLeft size={14} />
+                </button>
+
+                <button
+                  type="button"
+                  aria-label="Next image"
+                  onClick={() => goToRelativeImage(1)}
+                  className="pointer-events-auto absolute right-3 top-1/2 z-10 inline-flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-full border border-white/25 bg-black/15 text-white/80 shadow-[0_8px_24px_rgba(0,0,0,0.18)] backdrop-blur-md transition hover:bg-black/25"
+                >
+                  <ChevronRight size={14} />
+                </button>
+
+                <div className="pointer-events-none absolute inset-x-0 bottom-4 z-10 flex items-center justify-center">
+                  <div className="flex items-center gap-1.5 rounded-full bg-black/10 px-2 py-1 backdrop-blur-sm">
+                    {currentColorImages.map((_, idx) => (
+                      <span
+                        key={idx}
+                        className={`block rounded-full transition-all ${idx === activeImageIndex ? 'h-2.5 w-6 bg-white' : 'h-2 w-2 bg-white/45'}`}
+                      />
+                    ))}
+                  </div>
+                </div>
+              </>
+            )}
+
+            <div className="absolute top-3 right-3 z-10 rounded-full bg-black/10 px-2.5 py-0.5 text-[11px] text-white backdrop-blur-sm">
+              {activeImageIndex + 1} / {currentColorImages.length || 1}
+            </div>
           </div>
 
-          {swipableColors.length > 1 && (
-            <>
-              <button
-                type="button"
-                aria-label="Previous color"
-                onClick={() => goToRelativeColor(-1)}
-                className="pointer-events-auto absolute left-3 top-1/2 z-10 inline-flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-full border border-white/25 bg-black/15 text-white/80 shadow-[0_8px_24px_rgba(0,0,0,0.18)] backdrop-blur-md transition hover:bg-black/25"
-              >
-                <ChevronLeft size={14} />
-              </button>
-
-              <button
-                type="button"
-                aria-label="Next color"
-                onClick={() => goToRelativeColor(1)}
-                className="pointer-events-auto absolute right-3 top-1/2 z-10 inline-flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-full border border-white/25 bg-black/15 text-white/80 shadow-[0_8px_24px_rgba(0,0,0,0.18)] backdrop-blur-md transition hover:bg-black/25"
-              >
-                <ChevronRight size={14} />
-              </button>
-
-              <div className="pointer-events-none absolute inset-x-0 bottom-4 z-10 flex items-center justify-center">
-                <div className="flex items-center gap-1.5 rounded-full bg-black/10 px-2 py-1 backdrop-blur-sm">
-                  {swipableColors.map((color, idx) => (
-                    <span
-                      key={color.value}
-                      className={`block rounded-full transition-all ${idx === currentSwipeIndex ? 'h-2.5 w-6 bg-white' : 'h-2 w-2 bg-white/45'}`}
-                    />
-                  ))}
-                </div>
-              </div>
-            </>
+          {currentColorImages.length > 1 && (
+            <div className="mt-3 flex gap-2 overflow-x-auto pb-1 px-1 mx-auto max-w-115">
+              {currentColorImages.map((img, idx) => (
+                <button
+                  key={idx}
+                  type="button"
+                  onClick={() => setActiveImageIndex(idx)}
+                  className={`flex-shrink-0 h-16 w-16 rounded-lg overflow-hidden border-2 transition-all ${
+                    idx === activeImageIndex
+                      ? 'border-black ring-1 ring-black/20'
+                      : 'border-transparent opacity-60 hover:opacity-100'
+                  }`}
+                >
+                  <img
+                    src={resolveImageUrl(img)}
+                    alt={`${product.model_name} ${idx + 1}`}
+                    className="h-full w-full object-cover"
+                  />
+                </button>
+              ))}
+            </div>
           )}
         </div>
 
@@ -405,6 +447,11 @@ export default function Product() {
               <p className="text-[16px] text-black/60">{formatDzd(effectivePrice)}</p>
               {promotionPrice ? <p className="text-[13px] text-black/35 line-through">{formatDzd(product.selling_price)}</p> : null}
             </div>
+            {promotionPrice && (
+              <div className="mt-1.5 inline-flex items-center gap-1 rounded-full bg-red-50 px-2.5 py-0.5 text-[11px] font-semibold text-red-600">
+                خصم {Math.round(((product.selling_price - promotionPrice) / product.selling_price) * 100)}%
+              </div>
+            )}
           </div>
 
           <TrustStrip />
@@ -475,7 +522,7 @@ export default function Product() {
               <div>
                 <p className="text-[11px] uppercase tracking-[0.3em] text-black/40">الكمية</p>
                 {maxQuantity > 0 && maxQuantity < 3 && (
-                  <p className="text-[11px] text-black/50">كمية قليلة</p>
+                  <p className="text-[11px] text-red-500 font-medium">كمية قليلة</p>
                 )}
               </div>
               <QuantityPicker value={quantity} onChange={setQuantity} max={maxQuantity || 1} />
@@ -491,7 +538,7 @@ export default function Product() {
             >
               اطلب الآن - الدفع عند الاستلام
             </button>
-            <p className="text-[12px] font-semibold text-black/60">🔥 Stock limité aujourd’hui</p>
+            <p className="text-[12px] font-semibold text-black/60">🔥 Stock limité aujourd'hui</p>
           </div>
 
           {product.description && (

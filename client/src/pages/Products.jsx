@@ -22,6 +22,7 @@ const emptyProduct = {
   description: '',
   image: '',
   variants: [{ color: '', size: '', quantity: 0, image: '' }],
+  color_images: {},
 };
 
 export default function Products() {
@@ -77,7 +78,7 @@ export default function Products() {
 
   function openCreate() {
     setEditing(null);
-    setForm({ ...emptyProduct, variants: [{ color: '', size: '', quantity: 0, image: '' }] });
+    setForm({ ...emptyProduct, variants: [{ color: '', size: '', quantity: 0, image: '' }], color_images: {} });
     setModalOpen(true);
   }
 
@@ -92,6 +93,7 @@ export default function Products() {
       description: product.description || '',
       image: product.image || '',
       variants: product.variants.length > 0 ? product.variants.map((v) => ({ ...v })) : [{ color: '', size: '', quantity: 0, image: '' }],
+      color_images: product.color_images || {},
     });
     setModalOpen(true);
   }
@@ -119,6 +121,7 @@ export default function Products() {
           ...v,
           quantity: parseInt(v.quantity) || 0,
         })),
+        color_images: form.color_images || {},
       };
 
       if (editing) {
@@ -199,12 +202,15 @@ export default function Products() {
       setForm((f) => {
         const variants = f.variants.map((variant) => {
           const currentColor = normalizeColor(variant.color);
-          if (colorKey && currentColor === colorKey) {
+          if (colorKey && currentColor === colorKey && !variant.image) {
             return { ...variant, image: imagePath };
           }
           return variant;
         });
-        return { ...f, variants, image: f.image || imagePath };
+        const colorImages = { ...f.color_images };
+        if (!colorImages[colorKey]) colorImages[colorKey] = [];
+        colorImages[colorKey] = [...colorImages[colorKey], imagePath];
+        return { ...f, variants, image: f.image || imagePath, color_images: colorImages };
       });
       toast.success('تم رفع الصورة');
     } catch (err) {
@@ -214,25 +220,50 @@ export default function Products() {
     }
   }
 
-  function clearColorImage(colorKey) {
-    setForm((f) => ({
-      ...f,
-      variants: f.variants.map((variant) => {
-        const currentColor = normalizeColor(variant.color);
-        if (colorKey && currentColor === colorKey) {
-          return { ...variant, image: '' };
+  function removeColorImageAt(colorKey, index) {
+    setForm((f) => {
+      const colorImages = { ...f.color_images };
+      const arr = [...(colorImages[colorKey] || [])];
+      const removed = arr.splice(index, 1)[0];
+      colorImages[colorKey] = arr;
+      let newCover = f.image;
+      if (removed && removed === f.image) {
+        newCover = arr[0] || '';
+      }
+      const variants = f.variants.map((variant) => {
+        if (normalizeColor(variant.color) === colorKey && variant.image === removed) {
+          return { ...variant, image: arr[0] || '' };
         }
         return variant;
-      }),
-      image: (() => {
-        const removedImages = f.variants
-          .filter((variant) => colorKey && normalizeColor(variant.color) === colorKey)
-          .map((variant) => variant.image)
-          .filter(Boolean);
-        if (removedImages.includes(f.image)) return '';
-        return f.image;
-      })(),
-    }));
+      });
+      return { ...f, variants, image: newCover, color_images: colorImages };
+    });
+  }
+
+  function clearColorImage(colorKey) {
+    setForm((f) => {
+      const colorImages = { ...f.color_images };
+      delete colorImages[colorKey];
+      return {
+        ...f,
+        variants: f.variants.map((variant) => {
+          const currentColor = normalizeColor(variant.color);
+          if (colorKey && currentColor === colorKey) {
+            return { ...variant, image: '' };
+          }
+          return variant;
+        }),
+        image: (() => {
+          const removedImages = f.variants
+            .filter((variant) => colorKey && normalizeColor(variant.color) === colorKey)
+            .map((variant) => variant.image)
+            .filter(Boolean);
+          if (removedImages.includes(f.image)) return '';
+          return f.image;
+        })(),
+        color_images: colorImages,
+      };
+    });
   }
 
   function setCoverImage(imagePath) {
@@ -517,7 +548,7 @@ export default function Products() {
 
             {colorImageRows.length > 0 && (
               <div className="mb-4 rounded-lg border border-gray-200 bg-gray-50 p-3">
-                <p className="text-xs font-medium text-gray-600 mb-2">صور الألوان (صورة واحدة لكل لون)</p>
+                <p className="text-xs font-medium text-gray-600 mb-2">صور الألوان (عدة صور لكل لون)</p>
                 {form.image && (
                   <div className="mb-3 flex items-center gap-3 rounded-md border border-gray-200 bg-white p-2">
                     <img
@@ -538,44 +569,79 @@ export default function Products() {
                     </button>
                   </div>
                 )}
-                <div className="space-y-2">
-                  {colorImageRows.map((row) => (
-                    <div key={row.key} className="grid gap-2 sm:grid-cols-[1fr_1.6fr_auto_auto] items-center">
-                      <span className="text-sm text-gray-700">{row.label}</span>
-                      <input
-                        type="file"
-                        accept="image/*"
-                        onChange={(e) => uploadColorImage(row.key, e.target.files?.[0])}
-                        className="w-full text-xs"
-                      />
-                      {uploading[row.key] && <span className="text-[11px] text-gray-400">...رفع</span>}
-                      {row.image ? (
-                        <div className="flex items-center gap-2">
-                          <img
-                            src={resolveImageUrl(row.image)}
-                            alt={row.label}
-                            className="h-10 w-10 rounded object-cover border border-gray-200"
-                          />
-                          <button
-                            type="button"
-                            onClick={() => setCoverImage(row.image)}
-                            className={`text-xs ${form.image === row.image ? 'text-green-600' : 'text-primary hover:text-primary-dark'}`}
-                          >
-                            {form.image === row.image ? 'صورة الواجهة' : 'اجعلها صورة الواجهة'}
-                          </button>
+                <div className="space-y-4">
+                  {colorImageRows.map((row) => {
+                    const images = form.color_images?.[row.key] || [];
+                    return (
+                      <div key={row.key} className="rounded-md border border-gray-200 bg-white p-3">
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="text-sm font-medium text-gray-700">{row.label}</span>
+                          <div className="flex items-center gap-2">
+                            <label className="cursor-pointer text-xs text-primary hover:text-primary-dark font-medium">
+                              + إضافة صورة
+                              <input
+                                type="file"
+                                accept="image/*"
+                                multiple
+                                className="hidden"
+                                onChange={(e) => {
+                                  const files = Array.from(e.target.files || []);
+                                  files.forEach((f) => uploadColorImage(row.key, f));
+                                  e.target.value = '';
+                                }}
+                              />
+                            </label>
+                            {uploading[row.key] && <span className="text-[11px] text-gray-400">...رفع</span>}
+                          </div>
+                        </div>
+                        {images.length > 0 ? (
+                          <div className="flex flex-wrap gap-2">
+                            {images.map((img, idx) => (
+                              <div key={idx} className="group relative">
+                                <img
+                                  src={resolveImageUrl(img)}
+                                  alt={`${row.label} ${idx + 1}`}
+                                  className={`h-16 w-16 rounded object-cover border-2 ${form.image === img ? 'border-green-500' : 'border-gray-200'}`}
+                                />
+                                <div className="absolute inset-0 rounded bg-black/0 group-hover:bg-black/30 transition flex items-center justify-center gap-1 opacity-0 group-hover:opacity-100">
+                                  <button
+                                    type="button"
+                                    onClick={() => setCoverImage(img)}
+                                    className="text-[10px] bg-white/90 text-gray-700 rounded px-1 py-0.5 hover:bg-white"
+                                    title="صورة الواجهة"
+                                  >
+                                    ★
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => removeColorImageAt(row.key, idx)}
+                                    className="text-[10px] bg-red-500/90 text-white rounded px-1 py-0.5 hover:bg-red-600"
+                                    title="حذف"
+                                  >
+                                    ✕
+                                  </button>
+                                </div>
+                                {form.image === img && (
+                                  <span className="absolute -top-1 -right-1 h-4 w-4 rounded-full bg-green-500 text-white text-[8px] flex items-center justify-center">★</span>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <p className="text-[11px] text-gray-400">لا توجد صور - أضف صوراً لهذا اللون</p>
+                        )}
+                        {images.length > 0 && (
                           <button
                             type="button"
                             onClick={() => clearColorImage(row.key)}
-                            className="text-xs text-red-500 hover:text-red-700"
+                            className="mt-2 text-[11px] text-red-500 hover:text-red-700"
                           >
-                            حذف الصورة
+                            حذف جميع صور هذا اللون
                           </button>
-                        </div>
-                      ) : (
-                        <span className="text-[11px] text-gray-400">بدون صورة</span>
-                      )}
-                    </div>
-                  ))}
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
             )}

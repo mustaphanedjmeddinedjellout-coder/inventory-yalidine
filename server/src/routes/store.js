@@ -15,7 +15,21 @@ async function fetchVariants(productId) {
   return variantsResult.rows;
 }
 
-function mapProduct(row, variants) {
+async function fetchColorImages(productId) {
+  const result = await db.execute({
+    sql: 'SELECT color_key, image_url FROM product_images WHERE product_id = ? ORDER BY color_key, sort_order',
+    args: [productId],
+  });
+  const grouped = {};
+  for (const row of result.rows) {
+    const key = row.color_key || '';
+    if (!grouped[key]) grouped[key] = [];
+    grouped[key].push(row.image_url);
+  }
+  return grouped;
+}
+
+function mapProduct(row, variants, colorImages) {
   const totalStock = variants.reduce((sum, v) => sum + (v.quantity || 0), 0);
   return {
     id: row.id,
@@ -27,6 +41,7 @@ function mapProduct(row, variants) {
     image: row.image,
     total_stock: totalStock,
     variants,
+    color_images: colorImages || {},
   };
 }
 
@@ -40,7 +55,8 @@ router.get('/products', async (req, res) => {
     const products = [];
     for (const row of productsResult.rows) {
       const variants = await fetchVariants(row.id);
-      products.push(mapProduct(row, variants));
+      const colorImages = await fetchColorImages(row.id);
+      products.push(mapProduct(row, variants, colorImages));
     }
 
     success(res, products);
@@ -61,7 +77,8 @@ router.get('/products/:id', async (req, res) => {
 
     const row = productResult.rows[0];
     const variants = await fetchVariants(productId);
-    success(res, mapProduct(row, variants));
+    const colorImages = await fetchColorImages(productId);
+    success(res, mapProduct(row, variants, colorImages));
   } catch (err) {
     error(res, err.message);
   }

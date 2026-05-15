@@ -39,6 +39,36 @@ function normalizeVariants(variants = []) {
   });
 }
 
+async function fetchColorImages(productId) {
+  const result = await db.execute({
+    sql: 'SELECT * FROM product_images WHERE product_id = ? ORDER BY color_key, sort_order',
+    args: [productId],
+  });
+  const grouped = {};
+  for (const row of result.rows) {
+    const key = row.color_key || '';
+    if (!grouped[key]) grouped[key] = [];
+    grouped[key].push(row.image_url);
+  }
+  return grouped;
+}
+
+async function saveColorImages(productId, colorImages) {
+  await db.execute({ sql: 'DELETE FROM product_images WHERE product_id = ?', args: [productId] });
+  if (!colorImages || typeof colorImages !== 'object') return;
+  for (const [colorKey, urls] of Object.entries(colorImages)) {
+    if (!Array.isArray(urls)) continue;
+    for (let i = 0; i < urls.length; i++) {
+      const url = String(urls[i] || '').trim();
+      if (!url) continue;
+      await db.execute({
+        sql: 'INSERT INTO product_images (product_id, color_key, image_url, sort_order) VALUES (?, ?, ?, ?)',
+        args: [productId, normalizeColorKey(colorKey), url, i],
+      });
+    }
+  }
+}
+
 const productService = {
   /**
    * Get all products with their variants
@@ -71,7 +101,8 @@ const productService = {
         sql: 'SELECT * FROM product_variants WHERE product_id = ? ORDER BY color, size',
         args: [p.id],
       });
-      products.push({ ...p, variants: normalizeVariants(varResult.rows) });
+      const colorImages = await fetchColorImages(p.id);
+      products.push({ ...p, variants: normalizeVariants(varResult.rows), color_images: colorImages });
     }
     return products;
   },
@@ -89,6 +120,7 @@ const productService = {
       args: [id],
     });
     product.variants = normalizeVariants(varResult.rows);
+    product.color_images = await fetchColorImages(id);
     return product;
   },
 
@@ -96,7 +128,7 @@ const productService = {
    * Create a new product with variants
    */
   async create(data) {
-    const { model_name, category, selling_price, promotion_price, cost_price, description, image, variants } = data;
+    const { model_name, category, selling_price, promotion_price, cost_price, description, image, variants, color_images } = data;
     const normalizedVariants = normalizeVariants(variants || []);
 
     const productResult = await db.execute({
@@ -113,6 +145,10 @@ const productService = {
           args: [productId, v.color || '', v.size || '', v.quantity || 0, v.image || null],
         });
       }
+    }
+
+    if (color_images) {
+      await saveColorImages(productId, color_images);
     }
 
     return this.getById(productId);
@@ -160,6 +196,10 @@ const productService = {
       }
     }
 
+    if (data.color_images !== undefined) {
+      await saveColorImages(id, data.color_images);
+    }
+
     return this.getById(id);
   },
 
@@ -167,7 +207,7 @@ const productService = {
    * Delete a product and cascade to variants
    */
   async delete(id) {
-    // Delete variants first, then product (cascade may not work over HTTP)
+    await db.execute({ sql: 'DELETE FROM product_images WHERE product_id = ?', args: [id] });
     await db.execute({ sql: 'DELETE FROM product_variants WHERE product_id = ?', args: [id] });
     await db.execute({ sql: 'DELETE FROM order_items WHERE product_id = ?', args: [id] });
     return db.execute({ sql: 'DELETE FROM products WHERE id = ?', args: [id] });
