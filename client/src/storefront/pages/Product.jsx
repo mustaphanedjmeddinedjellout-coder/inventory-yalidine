@@ -178,11 +178,6 @@ export default function Product() {
     }
   }
 
-  function goToRelativeImage(step) {
-    if (currentColorImages.length < 2) return;
-    setActiveImageIndex((prev) => (prev + step + currentColorImages.length) % currentColorImages.length);
-  }
-
   function goToRelativeColor(step) {
     if (colors.length < 2) return;
     const currentColorIndex = colors.findIndex((c) => normalizeText(selectedColor) === c.value);
@@ -190,6 +185,30 @@ export default function Product() {
     const nextColor = colors[nextColorIndex];
     if (nextColor) {
       applyColorSelection(nextColor);
+    }
+  }
+
+  // Unified navigation: cycles through current color images, then jumps to next color
+  function goToRelativeImage(step) {
+    const imgCount = currentColorImages.length;
+    if (imgCount > 1) {
+      const nextIdx = activeImageIndex + step;
+      if (nextIdx >= 0 && nextIdx < imgCount) {
+        setActiveImageIndex(nextIdx);
+        return;
+      }
+      // At boundary: switch color if available
+      if (colors.length > 1) {
+        goToRelativeColor(step);
+        return;
+      }
+      // Wrap within current color
+      setActiveImageIndex((nextIdx + imgCount) % imgCount);
+      return;
+    }
+    // Single image: navigate colors
+    if (colors.length > 1) {
+      goToRelativeColor(step);
     }
   }
 
@@ -412,7 +431,7 @@ export default function Product() {
   }
 
   return (
-    <div className="container-bleed py-4 pb-28 sm:py-8 sm:pb-12">
+    <div className="container-bleed py-4 pb-32 sm:py-8 sm:pb-12">
       <div className="grid gap-6 lg:gap-8 lg:grid-cols-2">
         <div>
           <div className="relative mx-auto aspect-[4/5] w-full max-w-115 overflow-hidden bg-[#f5f1ea] max-h-[58vh] sm:aspect-3/4 sm:max-h-none">
@@ -449,80 +468,43 @@ export default function Product() {
               />
             </div>
 
-            {/* Image navigation arrows - show when multiple images */}
-            {currentColorImages.length > 1 && (
+            {/* Unified navigation arrows - show when there's more than 1 thing to navigate */}
+            {(currentColorImages.length > 1 || colors.length > 1) && (
               <>
                 <button
                   type="button"
-                  aria-label="Previous image"
+                  aria-label="Previous"
                   onClick={() => goToRelativeImage(-1)}
-                  className="pointer-events-auto absolute left-3 top-1/2 z-10 inline-flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-full border border-white/25 bg-black/15 text-white/80 shadow-[0_8px_24px_rgba(0,0,0,0.18)] backdrop-blur-md transition hover:bg-black/25"
+                  className="pointer-events-auto absolute left-3 top-1/2 z-10 inline-flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full bg-white/85 text-black/70 shadow-md backdrop-blur-md transition hover:bg-white"
                 >
-                  <ChevronLeft size={14} />
+                  <ChevronLeft size={18} />
                 </button>
-
                 <button
                   type="button"
-                  aria-label="Next image"
+                  aria-label="Next"
                   onClick={() => goToRelativeImage(1)}
-                  className="pointer-events-auto absolute right-3 top-1/2 z-10 inline-flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-full border border-white/25 bg-black/15 text-white/80 shadow-[0_8px_24px_rgba(0,0,0,0.18)] backdrop-blur-md transition hover:bg-black/25"
+                  className="pointer-events-auto absolute right-3 top-1/2 z-10 inline-flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full bg-white/85 text-black/70 shadow-md backdrop-blur-md transition hover:bg-white"
                 >
-                  <ChevronRight size={14} />
-                </button>
-
-                <div className="pointer-events-none absolute inset-x-0 bottom-4 z-10 flex items-center justify-center">
-                  <div className="flex items-center gap-1.5 rounded-full bg-black/10 px-2 py-1 backdrop-blur-sm">
-                    {currentColorImages.map((_, idx) => (
-                      <span
-                        key={idx}
-                        className={`block rounded-full transition-all ${idx === activeImageIndex ? 'h-2.5 w-6 bg-white' : 'h-2 w-2 bg-white/45'}`}
-                      />
-                    ))}
-                  </div>
-                </div>
-              </>
-            )}
-
-            {/* Color navigation arrows - always show when multiple colors */}
-            {colors.length > 1 && (
-              <>
-                <button
-                  type="button"
-                  aria-label="Previous color"
-                  onClick={() => goToRelativeColor(-1)}
-                  className="pointer-events-auto absolute left-3 top-1/3 z-10 inline-flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full border border-white/40 bg-black/25 text-white shadow-[0_8px_24px_rgba(0,0,0,0.3)] backdrop-blur-md transition hover:bg-black/40 hover:scale-105"
-                >
-                  <ChevronLeft size={20} />
-                </button>
-                <button
-                  type="button"
-                  aria-label="Next color"
-                  onClick={() => goToRelativeColor(1)}
-                  className="pointer-events-auto absolute right-3 top-1/3 z-10 inline-flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full border border-white/40 bg-black/25 text-white shadow-[0_8px_24px_rgba(0,0,0,0.3)] backdrop-blur-md transition hover:bg-black/40 hover:scale-105"
-                >
-                  <ChevronRight size={20} />
+                  <ChevronRight size={18} />
                 </button>
               </>
             )}
 
-            <div className="absolute top-3 right-3 z-10 rounded-full bg-black/10 px-2.5 py-0.5 text-[11px] text-white backdrop-blur-sm">
+            {/* Image counter badge */}
+            <div className="absolute top-3 right-3 z-10 rounded-full bg-black/40 px-2.5 py-0.5 text-[11px] text-white backdrop-blur-sm">
               {activeImageIndex + 1} / {currentColorImages.length || 1}
             </div>
 
-            {/* Color pagination dots - show when multiple colors */}
-            {colors.length > 1 && (
-              <div className="pointer-events-none absolute inset-x-0 bottom-12 z-10 flex items-center justify-center">
-                <div className="flex items-center gap-1.5 rounded-full bg-black/20 px-3 py-1.5 backdrop-blur-sm">
-                  {colors.map((color, idx) => {
-                    const isActive = normalizeText(selectedColor) === color.value;
-                    return (
-                      <span
-                        key={color.value}
-                        className={`block rounded-full transition-all ${isActive ? 'h-2 w-6 bg-white' : 'h-2 w-2 bg-white/50'}`}
-                        title={color.label}
-                      />
-                    );
-                  })}
+            {/* Single set of dots: image position within current color */}
+            {currentColorImages.length > 1 && (
+              <div className="pointer-events-none absolute inset-x-0 bottom-3 z-10 flex items-center justify-center">
+                <div className="flex items-center gap-1.5 rounded-full bg-black/30 px-2.5 py-1 backdrop-blur-sm">
+                  {currentColorImages.map((_, idx) => (
+                    <span
+                      key={idx}
+                      className={`block rounded-full transition-all ${idx === activeImageIndex ? 'h-1.5 w-5 bg-white' : 'h-1.5 w-1.5 bg-white/50'}`}
+                    />
+                  ))}
                 </div>
               </div>
             )}
@@ -565,10 +547,6 @@ export default function Product() {
               )}
             </div>
           </div>
-
-          <TrustStrip />
-
-          <SocialProof rating={4.8} orders={120} />
 
           <div className="space-y-4">
             <div>
@@ -648,14 +626,15 @@ export default function Product() {
               disabled={!selectedVariant || maxQuantity <= 0}
               onClick={onAdd}
             >
-              <span className="sm:hidden flex items-center justify-between w-full px-1">
-                <span className="text-[13px] font-semibold">{formatDzd(effectivePrice)}</span>
-                <span className="text-[14px] font-bold">اطلب الآن</span>
-              </span>
+              <span className="sm:hidden">اطلب الآن · {formatDzd(effectivePrice)}</span>
               <span className="hidden sm:inline">اطلب الآن - الدفع عند الاستلام</span>
             </button>
             <p className="hidden sm:block text-[12px] font-semibold text-black/60">🔥 Stock limité aujourd'hui</p>
           </div>
+
+          <TrustStrip />
+
+          <SocialProof rating={4.8} orders={120} />
 
           {product.description && (
             <div>
