@@ -5,7 +5,7 @@ import { formatDzd } from '../utils';
 import { submitCheckout, fetchCommunes, fetchDeliveryFees, fetchWilayas, fetchCenters } from '../api';
 
 export default function Checkout() {
-  const { items, subtotal, clearCart } = useCart();
+  const { items, subtotal, bundleDiscount, total: cartTotal, clearCart } = useCart();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -28,7 +28,7 @@ export default function Checkout() {
   });
 
   const [deliveryPrice, setDeliveryPrice] = useState(0);
-  const total = useMemo(() => subtotal + deliveryPrice, [subtotal, deliveryPrice]);
+  const total = useMemo(() => cartTotal + deliveryPrice, [cartTotal, deliveryPrice]);
 
   function getCookieValue(name) {
     if (typeof document === 'undefined') return '';
@@ -273,6 +273,7 @@ export default function Checkout() {
           deliveryPrice,
           notes: form.notes
         },
+        bundleDiscount: bundleDiscount || 0,
         items: items.map((item) => ({
           product_id: Number(item.productId),
           variant_id: Number(item.variantId),
@@ -455,6 +456,12 @@ export default function Checkout() {
             <span className="text-black/45">المجموع الفرعي</span>
             <span className="font-medium">{formatDzd(subtotal)}</span>
           </div>
+          {bundleDiscount > 0 && (
+            <div className="flex items-center justify-between text-[13px]">
+              <span className="font-semibold text-green-700">خصم الباقة -10%</span>
+              <span className="font-semibold text-green-700">-{formatDzd(bundleDiscount)}</span>
+            </div>
+          )}
           <div className="flex items-center justify-between text-[13px]">
             <span className="text-black/45">التوصيل</span>
             <span className="font-medium">

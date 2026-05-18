@@ -39,3 +39,25 @@ export function resolveImageUrl(image) {
   if (image.startsWith('http') || image.startsWith('/')) return image;
   return `/${image}`;
 }
+
+export function isTshirtCategory(category) {
+  const c = String(category || '').trim().toLowerCase();
+  return c.includes('t-shirt') || c.includes('tshirt');
+}
+
+export function isPantsCategory(category) {
+  const c = String(category || '').trim().toLowerCase();
+  return c.includes('pants') || c.includes('pantalon');
+}
+
+export const BUNDLE_DISCOUNT_RATE = 0.10;
+
+export function calculateBundleDiscount(items) {
+  const hasTshirt = items.some((item) => isTshirtCategory(item.category));
+  const hasPants = items.some((item) => isPantsCategory(item.category));
+  if (hasTshirt && hasPants) {
+    const subtotal = items.reduce((sum, item) => sum + item.price * item.quantity, 0);
+    return Math.round(subtotal * BUNDLE_DISCOUNT_RATE);
+  }
+  return 0;
+}

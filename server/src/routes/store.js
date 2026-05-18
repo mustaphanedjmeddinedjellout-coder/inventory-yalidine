@@ -87,7 +87,7 @@ router.get('/products/:id', async (req, res) => {
 // POST /api/store/checkout - protected order creation
 router.post('/checkout', storeApiKey, async (req, res) => {
   try {
-    const { customer, items } = req.body || {};
+    const { customer, items, bundleDiscount: clientBundleDiscount } = req.body || {};
     if (!customer || !items || !Array.isArray(items) || items.length === 0) {
       return error(res, 'Invalid checkout payload', 400);
     }
@@ -112,7 +112,24 @@ router.post('/checkout', storeApiKey, async (req, res) => {
       (sum, item) => sum + Number(item.selling_price || 0) * Number(item.quantity || 0),
       0
     );
-    const orderTotal = itemsTotal + deliveryPrice;
+
+    // Validate bundle discount server-side
+    let verifiedBundleDiscount = 0;
+    if (clientBundleDiscount && clientBundleDiscount > 0) {
+      const productIds = items.map((item) => Number(item.product_id));
+      const productsResult = await db.execute(
+        `SELECT id, category FROM products WHERE id IN (${productIds.map(() => '?').join(',')})`,
+        productIds
+      );
+      const categories = productsResult.rows.map((r) => String(r.category || '').toLowerCase());
+      const hasTshirt = categories.some((c) => c.includes('t-shirt') || c.includes('tshirt'));
+      const hasPants = categories.some((c) => c.includes('pants') || c.includes('pantalon'));
+      if (hasTshirt && hasPants) {
+        verifiedBundleDiscount = Math.round(itemsTotal * 0.10);
+      }
+    }
+
+    const orderTotal = itemsTotal - verifiedBundleDiscount + deliveryPrice;
 
     const orderInput = {
       notes: customer.notes || null,

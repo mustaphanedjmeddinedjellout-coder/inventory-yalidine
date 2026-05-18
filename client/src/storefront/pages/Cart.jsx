@@ -5,7 +5,7 @@ import QuantityPicker from '../components/QuantityPicker';
 import SmartImage from '../components/SmartImage';
 
 export default function Cart() {
-  const { items, subtotal, updateQty, removeItem } = useCart();
+  const { items, subtotal, bundleDiscount, total, updateQty, removeItem } = useCart();
 
   if (items.length === 0) {
     return (
@@ -60,10 +60,21 @@ export default function Cart() {
         ))}
       </div>
 
-      <div className="mt-8 rounded-2xl border border-black/10 bg-white/70 p-6">
+      <div className="mt-8 rounded-2xl border border-black/10 bg-white/70 p-6 space-y-3">
         <div className="flex items-center justify-between">
           <span className="text-[12px] uppercase tracking-[0.3em] text-black/40">المجموع الفرعي</span>
-          <span className="text-[16px] font-semibold">{formatDzd(subtotal)}</span>
+          <span className="text-[14px] font-medium">{formatDzd(subtotal)}</span>
+        </div>
+        {bundleDiscount > 0 && (
+          <div className="flex items-center justify-between">
+            <span className="text-[12px] font-semibold text-green-700">خصم الباقة -10%</span>
+            <span className="text-[14px] font-semibold text-green-700">-{formatDzd(bundleDiscount)}</span>
+          </div>
+        )}
+        {bundleDiscount > 0 && <div className="h-px bg-black/10" />}
+        <div className="flex items-center justify-between">
+          <span className="text-[12px] uppercase tracking-[0.3em] text-black/60 font-semibold">الإجمالي</span>
+          <span className="text-[16px] font-semibold">{formatDzd(total)}</span>
         </div>
       </div>
 

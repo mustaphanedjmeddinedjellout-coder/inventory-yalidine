@@ -10,6 +10,7 @@ import ProductCard from '../components/ProductCard';
 import TrustStrip from '../components/TrustStrip';
 import SocialProof from '../components/SocialProof';
 import CustomerReviews from '../components/CustomerReviews';
+import BundleDeal from '../components/BundleDeal';
 
 function normalizeText(value) {
   return String(value || '').trim().toLowerCase();
@@ -423,6 +424,7 @@ export default function Product() {
       price: effectivePrice,
       size: selectedVariant.size,
       color: selectedVariant.color,
+      category: product.category || '',
       quantity,
     });
     if (typeof window !== 'undefined' && window.fbq) {
@@ -652,6 +654,8 @@ export default function Product() {
             </button>
             <p className="hidden sm:block text-[12px] font-semibold text-black/60">🔥 Stock limité aujourd'hui</p>
           </div>
+
+          <BundleDeal currentProduct={product} catalog={catalog} />
 
           <TrustStrip />
 

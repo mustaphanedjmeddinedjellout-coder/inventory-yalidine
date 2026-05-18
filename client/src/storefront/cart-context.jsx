@@ -1,4 +1,5 @@
 import { createContext, useContext, useEffect, useMemo, useState } from 'react';
+import { calculateBundleDiscount } from './utils';
 
 const CartContext = createContext(null);
 const STORAGE_KEY = 'noire-cart-v1';
@@ -31,10 +32,13 @@ export function CartProvider({ children }) {
   const value = useMemo(() => {
     const subtotal = items.reduce((sum, item) => sum + item.price * item.quantity, 0);
     const count = items.reduce((sum, item) => sum + item.quantity, 0);
+    const bundleDiscount = calculateBundleDiscount(items);
 
     return {
       items,
       subtotal,
+      bundleDiscount,
+      total: subtotal - bundleDiscount,
       count,
       addItem: (item) => {
         setItems((prev) => {
