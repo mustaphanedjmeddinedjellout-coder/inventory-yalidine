@@ -39,7 +39,7 @@ export default function BundleDeal({ currentProduct, catalog }) {
   const currentPrice = getEffectivePrice(currentProduct);
   const partnerPrice = getEffectivePrice(bundlePartner);
   const combinedPrice = currentPrice + partnerPrice;
-  const discountAmount = Math.round(combinedPrice * BUNDLE_DISCOUNT_RATE);
+  const discountAmount = Math.round(partnerPrice * BUNDLE_DISCOUNT_RATE);
   const bundlePrice = combinedPrice - discountAmount;
   const discountPct = Math.round(BUNDLE_DISCOUNT_RATE * 100);
 

@@ -121,11 +121,18 @@ router.post('/checkout', storeApiKey, async (req, res) => {
         `SELECT id, category FROM products WHERE id IN (${productIds.map(() => '?').join(',')})`,
         productIds
       );
-      const categories = productsResult.rows.map((r) => String(r.category || '').toLowerCase());
-      const hasTshirt = categories.some((c) => c.includes('t-shirt') || c.includes('tshirt'));
-      const hasPants = categories.some((c) => c.includes('pants') || c.includes('pantalon'));
+      const productMap = new Map(productsResult.rows.map((r) => [r.id, String(r.category || '').toLowerCase()]));
+      const hasTshirt = [...productMap.values()].some((c) => c.includes('t-shirt') || c.includes('tshirt'));
+      const hasPants = [...productMap.values()].some((c) => c.includes('pants') || c.includes('pantalon'));
       if (hasTshirt && hasPants) {
-        verifiedBundleDiscount = Math.round(itemsTotal * 0.10);
+        const pantsTotal = items.reduce((sum, item) => {
+          const cat = productMap.get(Number(item.product_id)) || '';
+          if (cat.includes('pants') || cat.includes('pantalon')) {
+            return sum + Number(item.selling_price || 0) * Number(item.quantity || 0);
+          }
+          return sum;
+        }, 0);
+        verifiedBundleDiscount = Math.round(pantsTotal * 0.10);
       }
     }
 

@@ -56,8 +56,10 @@ export function calculateBundleDiscount(items) {
   const hasTshirt = items.some((item) => isTshirtCategory(item.category));
   const hasPants = items.some((item) => isPantsCategory(item.category));
   if (hasTshirt && hasPants) {
-    const subtotal = items.reduce((sum, item) => sum + item.price * item.quantity, 0);
-    return Math.round(subtotal * BUNDLE_DISCOUNT_RATE);
+    const pantsTotal = items
+      .filter((item) => isPantsCategory(item.category))
+      .reduce((sum, item) => sum + item.price * item.quantity, 0);
+    return Math.round(pantsTotal * BUNDLE_DISCOUNT_RATE);
   }
   return 0;
 }
