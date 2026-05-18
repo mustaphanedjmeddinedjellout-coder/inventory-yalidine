@@ -8,11 +8,22 @@ export default function BundleDeal({ currentProduct, catalog }) {
   const isTshirt = isTshirtCategory(currentCategory);
   const isPants = isPantsCategory(currentCategory);
 
+  const PREFERRED_PANTS_IDS = ['31', '32'];
+
   const bundlePartner = useMemo(() => {
     if (!catalog.length || (!isTshirt && !isPants)) return null;
 
     const currentId = String(currentProduct?.id || '');
     const pool = catalog.filter((item) => String(item?.id || '') !== currentId);
+
+    if (isTshirt) {
+      const preferred = PREFERRED_PANTS_IDS
+        .map((id) => pool.find((item) => String(item?.id || '') === id))
+        .filter((item) => item && (item.total_stock || item.variants?.reduce((s, v) => s + (v.quantity || 0), 0)) > 0);
+      if (preferred.length > 0) {
+        return preferred[Math.floor(Math.random() * preferred.length)];
+      }
+    }
 
     const matcher = isTshirt ? isPantsCategory : isTshirtCategory;
     const inStock = pool.filter(
