@@ -1,8 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { fetchLandingPage } from '../api';
+import { fetchLandingPage, submitCheckout, fetchWilayas, fetchCommunes, fetchDeliveryFees, fetchCenters } from '../api';
 import { formatDzd, resolveImageUrl } from '../utils';
-import { useCart } from '../cart-context';
 import SmartImage from '../components/SmartImage';
 import TrustStrip from '../components/TrustStrip';
 import CustomerReviews from '../components/CustomerReviews';
@@ -11,77 +10,27 @@ function normalizeText(value) {
   return String(value || '').trim().toLowerCase();
 }
 
-const SIZE_PRIORITY = ['XS', 'S', 'M', 'L', 'XL', 'XXL'];
-
-function sortSizes(sizes) {
-  return [...sizes].sort((a, b) => {
-    const left = a.toUpperCase();
-    const right = b.toUpperCase();
-    const li = SIZE_PRIORITY.indexOf(left);
-    const ri = SIZE_PRIORITY.indexOf(right);
-    if (li !== -1 || ri !== -1) {
-      if (li === -1) return 1;
-      if (ri === -1) return -1;
-      return li - ri;
-    }
-    return left.localeCompare(right, undefined, { numeric: true, sensitivity: 'base' });
-  });
-}
-
-function ProductSelector({ product, label, selection, onSelectionChange, customImage }) {
+function ProductSelector({ product, label, selectedVariantId, onSelect, customImage }) {
   const variants = product?.variants || [];
+  const selectedVariant = variants.find((v) => v.id === selectedVariantId);
 
-  const colors = useMemo(() => {
-    const map = new Map();
-    for (const v of variants) {
-      const lbl = String(v.color || '').trim();
-      const key = normalizeText(lbl);
-      if (!key || map.has(key)) continue;
-      map.set(key, lbl);
+  const displayImage = useMemo(() => {
+    if (customImage) return customImage;
+    if (selectedVariant) {
+      const colorKey = normalizeText(selectedVariant.color);
+      const extraImages = product?.color_images?.[colorKey] || [];
+      if (extraImages.length > 0) return extraImages[0];
+      if (selectedVariant.image) return selectedVariant.image;
     }
-    return Array.from(map.entries()).map(([value, lbl]) => ({ value, label: lbl }));
-  }, [variants]);
-
-  const sizes = useMemo(() => {
-    const unique = Array.from(new Set(variants.map((v) => String(v.size || '').trim()))).filter(Boolean);
-    return sortSizes(unique);
-  }, [variants]);
-
-  const selectedVariant = useMemo(
-    () => variants.find(
-      (v) => normalizeText(v.color) === normalizeText(selection.color) && normalizeText(v.size) === normalizeText(selection.size)
-    ),
-    [variants, selection.color, selection.size]
-  );
-
-  const colorImage = useMemo(() => {
-    const colorKey = normalizeText(selection.color);
-    const extraImages = product?.color_images?.[colorKey] || [];
-    if (extraImages.length > 0) return extraImages[0];
-    const variantImg = variants.find((v) => normalizeText(v.color) === colorKey && v.image)?.image;
-    return variantImg || product?.image || '';
-  }, [variants, selection.color, product]);
-
-  function selectColor(color) {
-    const hasSize = variants.some(
-      (v) => normalizeText(v.color) === color.value && normalizeText(v.size) === normalizeText(selection.size) && v.quantity > 0
-    );
-    if (hasSize) {
-      onSelectionChange({ color: color.label, size: selection.size });
-    } else {
-      const first = variants.find((v) => normalizeText(v.color) === color.value && v.quantity > 0);
-      onSelectionChange({ color: color.label, size: first?.size || selection.size });
-    }
-  }
-
-  const maxQty = selectedVariant?.quantity || 0;
+    return product?.image || '';
+  }, [customImage, selectedVariant, product]);
 
   return (
     <div className="rounded-2xl border border-black/10 bg-white/70 p-4 space-y-4">
       <div className="flex gap-4">
         <div className="w-24 h-28 flex-shrink-0 rounded-xl overflow-hidden bg-[#f5f1ea]">
           <SmartImage
-            src={resolveImageUrl(customImage || colorImage)}
+            src={resolveImageUrl(displayImage)}
             alt={product.model_name}
             className="h-full w-full object-cover"
           />
@@ -89,72 +38,39 @@ function ProductSelector({ product, label, selection, onSelectionChange, customI
         <div className="flex-1 min-w-0">
           <p className="text-[11px] uppercase tracking-[0.2em] text-black/40 mb-1">{label}</p>
           <h3 className="text-[15px] font-semibold text-ink truncate">{product.model_name}</h3>
-          {maxQty > 0 && maxQty < 3 && (
-            <p className="text-[11px] text-red-500 font-medium mt-1">كمية قليلة</p>
-          )}
-          {maxQty === 0 && selectedVariant && (
-            <p className="text-[11px] text-red-500 font-medium mt-1">غير متوفر</p>
+          {selectedVariant && (
+            <p className="text-[12px] text-black/55 mt-1">{selectedVariant.color} · {selectedVariant.size}</p>
           )}
         </div>
       </div>
 
-      {colors.length > 0 && (
-        <div>
-          <p className="text-[11px] uppercase tracking-[0.2em] text-black/40 mb-2">اللون</p>
-          <div className="flex flex-wrap gap-2">
-            {colors.map((color) => {
-              const isAvailable = variants.some((v) => normalizeText(v.color) === color.value && v.quantity > 0);
-              return (
-                <button
-                  key={color.value}
-                  type="button"
-                  disabled={!isAvailable}
-                  onClick={() => selectColor(color)}
-                  className={`rounded-full border px-3 py-1.5 text-[11px] uppercase tracking-wider transition-all ${
-                    normalizeText(selection.color) === color.value
-                      ? 'border-black bg-black text-white'
-                      : isAvailable
-                      ? 'border-black/20 text-black/70 hover:border-black'
-                      : 'border-black/10 text-black/30'
-                  }`}
-                >
-                  {color.label}
-                </button>
-              );
-            })}
-          </div>
+      <div>
+        <p className="text-[11px] uppercase tracking-[0.2em] text-black/40 mb-2">اختر اللون والمقاس</p>
+        <div className="flex flex-wrap gap-2">
+          {variants.map((v) => {
+            const isSelected = v.id === selectedVariantId;
+            const isAvailable = v.quantity > 0;
+            const comboLabel = `${v.color} - ${v.size}`;
+            return (
+              <button
+                key={v.id}
+                type="button"
+                disabled={!isAvailable}
+                onClick={() => onSelect(v.id)}
+                className={`rounded-full border px-3 py-1.5 text-[11px] tracking-wider transition-all ${
+                  isSelected
+                    ? 'border-black bg-black text-white'
+                    : isAvailable
+                    ? 'border-black/20 text-black/70 hover:border-black'
+                    : 'border-black/10 text-black/30 line-through'
+                }`}
+              >
+                {comboLabel}
+              </button>
+            );
+          })}
         </div>
-      )}
-
-      {sizes.length > 0 && (
-        <div>
-          <p className="text-[11px] uppercase tracking-[0.2em] text-black/40 mb-2">المقاس</p>
-          <div className="flex flex-wrap gap-2">
-            {sizes.map((size) => {
-              const isAvailable = variants.some(
-                (v) => normalizeText(v.size) === normalizeText(size) && normalizeText(v.color) === normalizeText(selection.color) && v.quantity > 0
-              );
-              return (
-                <button
-                  key={size}
-                  type="button"
-                  disabled={!isAvailable}
-                  onClick={() => onSelectionChange({ ...selection, size })}
-                  className={`rounded-full border px-3 py-1.5 text-[11px] uppercase tracking-wider transition-all ${
-                    normalizeText(selection.size) === normalizeText(size)
-                      ? 'border-black bg-black text-white'
-                      : isAvailable
-                      ? 'border-black/20 text-black/70 hover:border-black'
-                      : 'border-black/10 text-black/30'
-                  }`}
-                >
-                  {size}
-                </button>
-              );
-            })}
-          </div>
-        </div>
-      )}
+      </div>
     </div>
   );
 }
@@ -162,14 +78,83 @@ function ProductSelector({ product, label, selection, onSelectionChange, customI
 export default function LandingOffer() {
   const { slug } = useParams();
   const navigate = useNavigate();
-  const { addItem } = useCart();
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
+  const [pageError, setPageError] = useState('');
 
-  const [sel1, setSel1] = useState({ color: '', size: '' });
-  const [sel2, setSel2] = useState({ color: '', size: '' });
+  const [sel1, setSel1] = useState(null);
+  const [sel2, setSel2] = useState(null);
 
+  // Order form state
+  const [form, setForm] = useState({
+    name: '',
+    phone: '',
+    wilayaId: '',
+    wilayaName: '',
+    communeId: '',
+    communeName: '',
+    centerId: '',
+    centerName: '',
+    address: '',
+    deliveryMethod: 'home',
+    notes: '',
+  });
+  const [wilayas, setWilayas] = useState([]);
+  const [communes, setCommunes] = useState([]);
+  const [centers, setCenters] = useState([]);
+  const [deliveryPrice, setDeliveryPrice] = useState(0);
+  const [feeLoading, setFeeLoading] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [formError, setFormError] = useState('');
+
+  const set = (key, value) => setForm((prev) => ({ ...prev, [key]: value }));
+
+  function normalizePhoneDigits(value) {
+    return String(value || '')
+      .replace(/[\u0660-\u0669]/g, (d) => String(d.charCodeAt(0) - 0x0660))
+      .replace(/[\u06F0-\u06F9]/g, (d) => String(d.charCodeAt(0) - 0x06f0))
+      .replace(/\D/g, '');
+  }
+
+  function createEventId() {
+    return `purchase-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+  }
+
+  function getCookieValue(name) {
+    if (typeof document === 'undefined') return '';
+    const cookies = document.cookie ? document.cookie.split('; ') : [];
+    for (const cookie of cookies) {
+      const [key, ...rest] = cookie.split('=');
+      if (key === name) return decodeURIComponent(rest.join('='));
+    }
+    return '';
+  }
+
+  function getTikTokTracking() {
+    if (typeof window === 'undefined') return { ttclid: '', ttp: '' };
+    const params = new URLSearchParams(window.location.search || '');
+    const ttclidFromUrl = params.get('ttclid') || '';
+    if (ttclidFromUrl) {
+      try { localStorage.setItem('ttclid', ttclidFromUrl); } catch {}
+    }
+    let storedTtclid = '';
+    try { storedTtclid = localStorage.getItem('ttclid') || ''; } catch {}
+    const ttp = getCookieValue('_ttp');
+    return { ttclid: ttclidFromUrl || storedTtclid || '', ttp: ttp || '' };
+  }
+
+  function scrollToField(fieldId) {
+    if (typeof window === 'undefined') return;
+    requestAnimationFrame(() => {
+      const el = document.getElementById(fieldId);
+      if (!el) return;
+      const top = window.scrollY + el.getBoundingClientRect().top - 120;
+      window.scrollTo({ top, behavior: 'smooth' });
+      try { el.focus({ preventScroll: true }); } catch { el.focus(); }
+    });
+  }
+
+  // Load landing page data
   useEffect(() => {
     if (!slug) return;
     let active = true;
@@ -180,12 +165,12 @@ export default function LandingOffer() {
         setData(res);
         const v1 = res.product1?.variants?.find((v) => v.quantity > 0);
         const v2 = res.product2?.variants?.find((v) => v.quantity > 0);
-        if (v1) setSel1({ color: v1.color || '', size: v1.size || '' });
-        if (v2) setSel2({ color: v2.color || '', size: v2.size || '' });
+        if (v1) setSel1(v1.id);
+        if (v2) setSel2(v2.id);
       })
       .catch((err) => {
         if (!active) return;
-        setError(err.message || 'العرض غير متوفر');
+        setPageError(err.message || 'العرض غير متوفر');
       })
       .finally(() => {
         if (!active) return;
@@ -194,6 +179,7 @@ export default function LandingOffer() {
     return () => { active = false; };
   }, [slug]);
 
+  // Meta Pixel ViewContent
   useEffect(() => {
     if (!data || typeof window === 'undefined' || !window.fbq) return;
     window.fbq('track', 'ViewContent', {
@@ -205,76 +191,203 @@ export default function LandingOffer() {
     });
   }, [data]);
 
+  // Load wilayas
+  useEffect(() => {
+    let active = true;
+    fetchWilayas()
+      .then((d) => { if (active) setWilayas(d || []); })
+      .catch(() => {});
+    return () => { active = false; };
+  }, []);
+
+  // Load communes when wilaya changes
+  useEffect(() => {
+    if (!form.wilayaId) return;
+    let active = true;
+    setCommunes([]);
+    setCenters([]);
+    set('communeId', '');
+    set('communeName', '');
+    set('centerId', '');
+    set('centerName', '');
+    fetchCommunes(form.wilayaId)
+      .then((d) => { if (active) setCommunes(d || []); })
+      .catch(() => {});
+    return () => { active = false; };
+  }, [form.wilayaId]);
+
+  // Load centers for stopdesk
+  useEffect(() => {
+    if (!form.wilayaId || form.deliveryMethod !== 'stopdesk') return;
+    let active = true;
+    setCenters([]);
+    set('centerId', '');
+    set('centerName', '');
+    fetchCenters({ wilayaId: form.wilayaId, communeId: form.communeId })
+      .then((d) => { if (active) setCenters(d || []); })
+      .catch(() => {});
+    return () => { active = false; };
+  }, [form.wilayaId, form.communeId, form.deliveryMethod]);
+
+  // Calculate delivery fee
+  useEffect(() => {
+    if (!form.wilayaId) return;
+    let active = true;
+    setFeeLoading(true);
+    fetchDeliveryFees({
+      wilayaId: form.wilayaId,
+      communeId: form.communeId,
+      isStopdesk: form.deliveryMethod === 'stopdesk',
+    })
+      .then((d) => {
+        if (!active) return;
+        const basePrice = Number(d?.price) || 0;
+        setDeliveryPrice(Math.max(0, basePrice - 100));
+      })
+      .catch(() => { if (active) setDeliveryPrice(0); })
+      .finally(() => { if (active) setFeeLoading(false); });
+    return () => { active = false; };
+  }, [form.wilayaId, form.deliveryMethod, form.communeId]);
+
   const variant1 = useMemo(() => {
-    if (!data?.product1) return null;
-    return data.product1.variants.find(
-      (v) => normalizeText(v.color) === normalizeText(sel1.color) && normalizeText(v.size) === normalizeText(sel1.size)
-    );
+    if (!data?.product1 || !sel1) return null;
+    return data.product1.variants.find((v) => v.id === sel1);
   }, [data, sel1]);
 
   const variant2 = useMemo(() => {
-    if (!data?.product2) return null;
-    return data.product2.variants.find(
-      (v) => normalizeText(v.color) === normalizeText(sel2.color) && normalizeText(v.size) === normalizeText(sel2.size)
-    );
+    if (!data?.product2 || !sel2) return null;
+    return data.product2.variants.find((v) => v.id === sel2);
   }, [data, sel2]);
 
   const canOrder = variant1 && variant1.quantity > 0 && variant2 && variant2.quantity > 0;
 
-  function handleOrder() {
+  const total = useMemo(() => {
+    if (!data) return 0;
+    return data.offer_price + deliveryPrice;
+  }, [data, deliveryPrice]);
+
+  async function handleSubmit() {
     if (!canOrder || !data) return;
-    const p1 = data.product1;
-    const p2 = data.product2;
 
-    const pricePerItem1 = Math.round(data.offer_price * (p1.selling_price / (p1.selling_price + p2.selling_price)));
-    const pricePerItem2 = data.offer_price - pricePerItem1;
-
-    addItem({
-      productId: String(p1.id),
-      variantId: String(variant1.id),
-      title: p1.model_name,
-      image: resolveImageUrl(variant1.image || p1.image),
-      price: pricePerItem1,
-      size: variant1.size,
-      color: variant1.color,
-      category: p1.category || '',
-      quantity: 1,
-    });
-
-    addItem({
-      productId: String(p2.id),
-      variantId: String(variant2.id),
-      title: p2.model_name,
-      image: resolveImageUrl(variant2.image || p2.image),
-      price: pricePerItem2,
-      size: variant2.size,
-      color: variant2.color,
-      category: p2.category || '',
-      quantity: 1,
-    });
-
-    if (typeof window !== 'undefined' && window.fbq) {
-      window.fbq('track', 'AddToCart', {
-        content_type: 'product',
-        content_ids: [String(p1.id), String(p2.id)],
-        content_name: data.title,
-        currency: 'DZD',
-        value: Number(data.offer_price || 0),
-        num_items: 2,
-      });
+    if (!form.name.trim()) {
+      setFormError('يرجى ملء جميع الحقول المطلوبة.');
+      scrollToField('lp-name');
+      return;
+    }
+    if (!form.phone.trim()) {
+      setFormError('يرجى ملء جميع الحقول المطلوبة.');
+      scrollToField('lp-phone');
+      return;
+    }
+    if (!form.wilayaId) {
+      setFormError('يرجى ملء جميع الحقول المطلوبة.');
+      scrollToField('lp-wilaya');
+      return;
+    }
+    if (!form.communeId) {
+      setFormError('يرجى ملء جميع الحقول المطلوبة.');
+      scrollToField('lp-commune');
+      return;
+    }
+    if (form.deliveryMethod === 'home' && !form.address.trim()) {
+      setFormError('يرجى ملء جميع الحقول المطلوبة.');
+      scrollToField('lp-address');
+      return;
+    }
+    const normalizedPhone = normalizePhoneDigits(form.phone);
+    if (!/^\d{10}$/.test(normalizedPhone)) {
+      setFormError('رقم هاتفك غير صحيح. يجب أن يكون 10 أرقام.');
+      scrollToField('lp-phone');
+      return;
+    }
+    if (form.deliveryMethod === 'stopdesk' && !form.centerId) {
+      setFormError('يرجى اختيار مكتب الاستلام.');
+      scrollToField('lp-center');
+      return;
     }
 
-    navigate('/checkout');
+    setSubmitting(true);
+    setFormError('');
+
+    try {
+      const p1 = data.product1;
+      const p2 = data.product2;
+      const pricePerItem1 = Math.round(data.offer_price * (p1.selling_price / (p1.selling_price + p2.selling_price)));
+      const pricePerItem2 = data.offer_price - pricePerItem1;
+
+      const eventId = createEventId();
+      const eventSourceUrl = typeof window !== 'undefined' ? window.location.href : '';
+      const tiktokTracking = getTikTokTracking();
+
+      const payload = {
+        customer: {
+          name: form.name,
+          phone: normalizedPhone,
+          wilaya: form.wilayaName,
+          commune: form.communeName,
+          eventId,
+          eventSourceUrl,
+          ttclid: tiktokTracking.ttclid,
+          ttp: tiktokTracking.ttp,
+          address: form.deliveryMethod === 'stopdesk'
+            ? `${form.centerName} - Bureau Yalidine`
+            : form.address,
+          centerId: form.centerId,
+          deliveryMethod: form.deliveryMethod,
+          deliveryPrice,
+          notes: form.notes,
+        },
+        bundleDiscount: 0,
+        items: [
+          {
+            product_id: Number(p1.id),
+            variant_id: Number(variant1.id),
+            quantity: 1,
+            selling_price: pricePerItem1,
+          },
+          {
+            product_id: Number(p2.id),
+            variant_id: Number(variant2.id),
+            quantity: 1,
+            selling_price: pricePerItem2,
+          },
+        ],
+      };
+
+      const result = await submitCheckout(payload);
+      const orderRef = result.orderNumber || result.orderId || 'order';
+
+      if (typeof window !== 'undefined' && window.fbq) {
+        window.fbq(
+          'track',
+          'Purchase',
+          {
+            currency: 'DZD',
+            value: Number(total.toFixed(2)),
+            content_type: 'product',
+            content_ids: [String(p1.id), String(p2.id)],
+            num_items: 2,
+          },
+          { eventID: eventId }
+        );
+      }
+
+      navigate(`/order-success/${orderRef}`);
+    } catch (err) {
+      setFormError(err.message || 'فشل إتمام الطلب');
+    } finally {
+      setSubmitting(false);
+    }
   }
 
   if (loading) {
     return <div className="container-bleed py-16 text-[13px] text-black/50 text-center">جار التحميل...</div>;
   }
 
-  if (error || !data) {
+  if (pageError || !data) {
     return (
       <div className="container-bleed py-16 text-center">
-        <p className="text-red-500 text-[13px]">{error || 'العرض غير متوفر'}</p>
+        <p className="text-red-500 text-[13px]">{pageError || 'العرض غير متوفر'}</p>
       </div>
     );
   }
@@ -287,7 +400,7 @@ export default function LandingOffer() {
       <div className="text-center mb-8">
         {discount > 0 && (
           <span className="inline-flex items-center gap-1 rounded-full bg-red-50 px-3 py-1 text-[12px] font-semibold text-red-600 mb-3">
-            🔥 وفّر {discount}%
+            وفّر {discount}%
           </span>
         )}
         <h1 className="text-2xl sm:text-3xl font-display text-ink leading-tight">{data.title}</h1>
@@ -314,39 +427,197 @@ export default function LandingOffer() {
         <ProductSelector
           product={data.product1}
           label="المنتج الأول"
-          selection={sel1}
-          onSelectionChange={setSel1}
+          selectedVariantId={sel1}
+          onSelect={setSel1}
           customImage={data.product1_image}
         />
         <ProductSelector
           product={data.product2}
           label="المنتج الثاني"
-          selection={sel2}
-          onSelectionChange={setSel2}
+          selectedVariantId={sel2}
+          onSelect={setSel2}
           customImage={data.product2_image}
         />
 
-        {/* CTA */}
-        <div className="space-y-2 pt-2">
-          <button
-            type="button"
-            className="btn-cta-main btn-cta-fixed"
-            disabled={!canOrder}
-            onClick={handleOrder}
-          >
-            <span className="sm:hidden">اطلب الآن · {formatDzd(data.offer_price)}</span>
-            <span className="hidden sm:inline">اطلب العرض الآن - الدفع عند الاستلام</span>
-          </button>
-          {!canOrder && (
-            <p className="text-center text-[12px] text-red-500">يرجى اختيار اللون والمقاس المتوفر لكلا المنتجين</p>
-          )}
-        </div>
+        {!canOrder && (
+          <p className="text-center text-[12px] text-red-500">يرجى اختيار اللون والمقاس المتوفر لكلا المنتجين</p>
+        )}
 
         <TrustStrip />
 
         {/* Urgency */}
         <div className="text-center py-3 rounded-xl bg-amber-50 border border-amber-200">
-          <p className="text-[13px] font-semibold text-amber-800">⏰ العرض محدود - لا تفوت الفرصة!</p>
+          <p className="text-[13px] font-semibold text-amber-800">العرض محدود - لا تفوت الفرصة!</p>
+        </div>
+
+        {/* Inline Order Form */}
+        <div className="rounded-2xl border border-black/10 bg-white/70 p-5 space-y-4 mt-6">
+          <h2 className="text-[15px] font-semibold text-ink">معلومات الطلب</h2>
+          <p className="text-[12px] text-black/45">الدفع عند الاستلام — املأ بياناتك وسنوصل لك</p>
+
+          {formError && <p className="text-red-500 text-[12px] bg-red-50 rounded-lg px-3 py-2">{formError}</p>}
+
+          <div className="field-block">
+            <label className="text-[12px] text-black/50 mb-1 block">الاسم الكامل *</label>
+            <input
+              id="lp-name"
+              className="input-field"
+              value={form.name}
+              onChange={(e) => set('name', e.target.value)}
+            />
+          </div>
+
+          <div className="field-block">
+            <label className="text-[12px] text-black/50 mb-1 block">الهاتف *</label>
+            <input
+              id="lp-phone"
+              className="input-field"
+              value={form.phone}
+              onChange={(e) => set('phone', e.target.value)}
+              inputMode="numeric"
+              maxLength={10}
+              placeholder="0XXXXXXXXX"
+            />
+          </div>
+
+          <div className="field-block">
+            <label className="text-[12px] text-black/50 mb-1 block">طريقة التوصيل</label>
+            <div className="grid grid-cols-2 gap-3">
+              <button
+                type="button"
+                className={`rounded-full border px-4 py-2 text-[12px] uppercase tracking-wider transition-all ${
+                  form.deliveryMethod === 'home'
+                    ? 'border-black bg-black text-white'
+                    : 'border-black/20 text-black/70 hover:border-black'
+                }`}
+                onClick={() => set('deliveryMethod', 'home')}
+              >
+                للمنزل
+              </button>
+              <button
+                type="button"
+                className={`rounded-full border px-4 py-2 text-[12px] uppercase tracking-wider transition-all ${
+                  form.deliveryMethod === 'stopdesk'
+                    ? 'border-black bg-black text-white'
+                    : 'border-black/20 text-black/70 hover:border-black'
+                }`}
+                onClick={() => set('deliveryMethod', 'stopdesk')}
+              >
+                مكتب ياليدين
+              </button>
+            </div>
+          </div>
+
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div className="field-block">
+              <label className="text-[12px] text-black/50 mb-1 block">الولاية *</label>
+              <select
+                id="lp-wilaya"
+                className="input-field"
+                value={form.wilayaId}
+                onChange={(e) => {
+                  const wilayaId = e.target.value;
+                  const selected = wilayas.find((w) => String(w.id) === String(wilayaId));
+                  set('wilayaId', wilayaId);
+                  set('wilayaName', selected?.name || selected?.wilaya_name || '');
+                }}
+              >
+                <option value="">اختر الولاية</option>
+                {wilayas.map((w) => (
+                  <option key={w.id} value={w.id}>{w.name || w.wilaya_name}</option>
+                ))}
+              </select>
+            </div>
+            <div className="field-block">
+              <label className="text-[12px] text-black/50 mb-1 block">البلدية *</label>
+              <select
+                id="lp-commune"
+                className="input-field"
+                value={form.communeId}
+                onChange={(e) => {
+                  const communeId = e.target.value;
+                  const selected = communes.find((c) => String(c.id) === String(communeId));
+                  set('communeId', communeId);
+                  set('communeName', selected?.name || selected?.commune_name || '');
+                }}
+                disabled={!form.wilayaId}
+              >
+                <option value="">اختر البلدية</option>
+                {communes
+                  .filter((c) => form.deliveryMethod !== 'stopdesk' || c.has_stop_desk)
+                  .map((c) => (
+                    <option key={c.id} value={c.id}>{c.name || c.commune_name}</option>
+                  ))}
+              </select>
+            </div>
+          </div>
+
+          {form.deliveryMethod === 'stopdesk' && (
+            <div className="field-block">
+              <label className="text-[12px] text-black/50 mb-1 block">مكتب ياليدين *</label>
+              <select
+                id="lp-center"
+                className="input-field"
+                value={form.centerId}
+                onChange={(e) => {
+                  const centerId = e.target.value;
+                  const selected = centers.find((c) => String(c.center_id || c.id) === String(centerId));
+                  set('centerId', centerId);
+                  set('centerName', selected?.name || '');
+                }}
+                disabled={!form.wilayaId}
+              >
+                <option value="">اختر مكتب ياليدين</option>
+                {centers.map((c) => (
+                  <option key={c.center_id || c.id} value={c.center_id || c.id}>{c.name}</option>
+                ))}
+              </select>
+            </div>
+          )}
+
+          {form.deliveryMethod === 'home' && (
+            <div className="field-block">
+              <label className="text-[12px] text-black/50 mb-1 block">العنوان *</label>
+              <input
+                id="lp-address"
+                className="input-field"
+                value={form.address}
+                onChange={(e) => set('address', e.target.value)}
+              />
+            </div>
+          )}
+
+          <div className="field-block">
+            <label className="text-[12px] text-black/50 mb-1 block">ملاحظات</label>
+            <textarea className="input-field" rows={2} value={form.notes} onChange={(e) => set('notes', e.target.value)} />
+          </div>
+
+          {/* Price Summary */}
+          <div className="border-t border-black/10 pt-4 space-y-2">
+            <div className="flex items-center justify-between text-[13px]">
+              <span className="text-black/45">سعر العرض</span>
+              <span className="font-medium">{formatDzd(data.offer_price)}</span>
+            </div>
+            <div className="flex items-center justify-between text-[13px]">
+              <span className="text-black/45">التوصيل</span>
+              <span className="font-medium">{feeLoading ? '...' : formatDzd(deliveryPrice)}</span>
+            </div>
+            <div className="h-px bg-black/10" />
+            <div className="flex items-center justify-between text-[15px] font-semibold">
+              <span>الإجمالي</span>
+              <span>{formatDzd(total)}</span>
+            </div>
+          </div>
+
+          {/* Submit */}
+          <button
+            type="button"
+            className="w-full rounded-full bg-black text-white py-3.5 text-[13px] font-semibold uppercase tracking-wider hover:bg-black/90 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+            disabled={!canOrder || submitting}
+            onClick={handleSubmit}
+          >
+            {submitting ? 'جار الإرسال...' : `تأكيد الطلب · ${formatDzd(total)}`}
+          </button>
         </div>
       </div>
 

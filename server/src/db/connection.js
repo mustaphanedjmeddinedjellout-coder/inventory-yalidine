@@ -140,6 +140,8 @@ async function initializeDatabase() {
       image TEXT,
       product1_image TEXT,
       product2_image TEXT,
+      product1_variants TEXT,
+      product2_variants TEXT,
       active INTEGER NOT NULL DEFAULT 1,
       created_at TEXT DEFAULT (datetime('now')),
       updated_at TEXT DEFAULT (datetime('now')),
@@ -200,6 +202,12 @@ async function setupDatabase() {
       }
       if (!lpCols.includes('product2_image')) {
         await db.execute('ALTER TABLE landing_pages ADD COLUMN product2_image TEXT');
+      }
+      if (!lpCols.includes('product1_variants')) {
+        await db.execute('ALTER TABLE landing_pages ADD COLUMN product1_variants TEXT');
+      }
+      if (!lpCols.includes('product2_variants')) {
+        await db.execute('ALTER TABLE landing_pages ADD COLUMN product2_variants TEXT');
       }
     }
   } catch { /* table may not exist yet, that's fine */ }

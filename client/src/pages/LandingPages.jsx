@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { landingPageApi, productApi } from '../api';
 import Modal from '../components/Modal';
 import LoadingSpinner from '../components/LoadingSpinner';
@@ -17,8 +17,54 @@ const emptyForm = {
   image: '',
   product1_image: '',
   product2_image: '',
+  product1_variants: [],
+  product2_variants: [],
   active: true,
 };
+
+function VariantPicker({ label, product, selectedIds, onChange }) {
+  const variants = product?.variants || [];
+  if (!product || variants.length === 0) return null;
+
+  function toggle(variantId) {
+    if (selectedIds.includes(variantId)) {
+      onChange(selectedIds.filter((id) => id !== variantId));
+    } else {
+      onChange([...selectedIds, variantId]);
+    }
+  }
+
+  return (
+    <div>
+      <label className="block text-sm font-medium text-gray-700 mb-2">{label}</label>
+      <div className="flex flex-wrap gap-2">
+        {variants.map((v) => {
+          const isSelected = selectedIds.includes(v.id);
+          const comboLabel = `${v.color} - ${v.size}`;
+          return (
+            <button
+              key={v.id}
+              type="button"
+              onClick={() => toggle(v.id)}
+              className={`text-xs px-3 py-1.5 rounded-full border transition-all ${
+                isSelected
+                  ? 'bg-blue-600 text-white border-blue-600'
+                  : v.quantity > 0
+                  ? 'border-gray-300 text-gray-700 hover:border-blue-400'
+                  : 'border-gray-200 text-gray-300 line-through'
+              }`}
+            >
+              {comboLabel} {v.quantity > 0 ? `(${v.quantity})` : '(0)'}
+            </button>
+          );
+        })}
+      </div>
+      <p className="text-[10px] text-gray-400 mt-1">
+        {selectedIds.length === 0 ? 'لم تحدد أي كومبو — سيظهر الكل للعميل' : `${selectedIds.length} كومبو محدد`}
+      </p>
+    </div>
+  );
+}
 
 function ImageUploadField({ label, value, onChange, uploading, onUpload }) {
   const inputRef = useRef(null);
@@ -128,6 +174,8 @@ export default function LandingPages() {
 
   function openEdit(page) {
     setEditing(page);
+    const p1v = page.product1_variants ? (typeof page.product1_variants === 'string' ? JSON.parse(page.product1_variants) : page.product1_variants) : [];
+    const p2v = page.product2_variants ? (typeof page.product2_variants === 'string' ? JSON.parse(page.product2_variants) : page.product2_variants) : [];
     setForm({
       slug: page.slug,
       title: page.title,
@@ -139,6 +187,8 @@ export default function LandingPages() {
       image: page.image || '',
       product1_image: page.product1_image || '',
       product2_image: page.product2_image || '',
+      product1_variants: p1v,
+      product2_variants: p2v,
       active: Boolean(page.active),
     });
     setModalOpen(true);
@@ -163,6 +213,8 @@ export default function LandingPages() {
         image: form.image || null,
         product1_image: form.product1_image || null,
         product2_image: form.product2_image || null,
+        product1_variants: form.product1_variants.length > 0 ? form.product1_variants : null,
+        product2_variants: form.product2_variants.length > 0 ? form.product2_variants : null,
         active: form.active,
       };
 
@@ -206,6 +258,9 @@ export default function LandingPages() {
   }
 
   const set = (key, value) => setForm((prev) => ({ ...prev, [key]: value }));
+
+  const product1Data = useMemo(() => products.find((p) => String(p.id) === form.product1_id), [products, form.product1_id]);
+  const product2Data = useMemo(() => products.find((p) => String(p.id) === form.product2_id), [products, form.product2_id]);
 
   if (loading) return <LoadingSpinner />;
 
@@ -341,6 +396,30 @@ export default function LandingPages() {
               />
             </div>
           </div>
+
+          {/* Variant Combos */}
+          {(form.product1_id || form.product2_id) && (
+            <div className="border-t border-gray-100 pt-4 space-y-4">
+              <p className="text-sm font-semibold text-gray-700">الكومبوهات المتاحة للعميل</p>
+              <p className="text-[11px] text-gray-400">اختر الكومبوهات (لون + مقاس) التي تريد عرضها. إذا لم تختر شيء، سيظهر الكل.</p>
+              {form.product1_id && (
+                <VariantPicker
+                  label={`كومبوهات المنتج الأول (${product1Data?.model_name || ''})`}
+                  product={product1Data}
+                  selectedIds={form.product1_variants}
+                  onChange={(ids) => set('product1_variants', ids)}
+                />
+              )}
+              {form.product2_id && (
+                <VariantPicker
+                  label={`كومبوهات المنتج الثاني (${product2Data?.model_name || ''})`}
+                  product={product2Data}
+                  selectedIds={form.product2_variants}
+                  onChange={(ids) => set('product2_variants', ids)}
+                />
+              )}
+            </div>
+          )}
 
           <div className="border-t border-gray-100 pt-4">
             <p className="text-sm font-semibold text-gray-700 mb-3">الصور</p>

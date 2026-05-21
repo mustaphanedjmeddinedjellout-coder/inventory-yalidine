@@ -73,6 +73,16 @@ router.get('/:slug', async (req, res) => {
       return error(res, 'Products not found', 404);
     }
 
+    const p1AllowedIds = page.product1_variants ? JSON.parse(page.product1_variants) : null;
+    const p2AllowedIds = page.product2_variants ? JSON.parse(page.product2_variants) : null;
+
+    if (p1AllowedIds && product1) {
+      product1.variants = product1.variants.filter(v => p1AllowedIds.includes(v.id));
+    }
+    if (p2AllowedIds && product2) {
+      product2.variants = product2.variants.filter(v => p2AllowedIds.includes(v.id));
+    }
+
     success(res, {
       id: page.id,
       slug: page.slug,
@@ -83,6 +93,8 @@ router.get('/:slug', async (req, res) => {
       image: page.image,
       product1_image: page.product1_image || null,
       product2_image: page.product2_image || null,
+      product1_variants: p1AllowedIds,
+      product2_variants: p2AllowedIds,
       active: page.active,
       product1,
       product2,
@@ -95,15 +107,15 @@ router.get('/:slug', async (req, res) => {
 // POST /api/landing-pages - create
 router.post('/', async (req, res) => {
   try {
-    const { slug, title, subtitle, product1_id, product2_id, offer_price, original_price, image, product1_image, product2_image, active } = req.body;
+    const { slug, title, subtitle, product1_id, product2_id, offer_price, original_price, image, product1_image, product2_image, product1_variants, product2_variants, active } = req.body;
 
     if (!slug || !title || !product1_id || !product2_id || offer_price == null) {
       return error(res, 'Missing required fields: slug, title, product1_id, product2_id, offer_price', 400);
     }
 
     const result = await db.execute({
-      sql: `INSERT INTO landing_pages (slug, title, subtitle, product1_id, product2_id, offer_price, original_price, image, product1_image, product2_image, active)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      sql: `INSERT INTO landing_pages (slug, title, subtitle, product1_id, product2_id, offer_price, original_price, image, product1_image, product2_image, product1_variants, product2_variants, active)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       args: [
         slug,
         title,
@@ -115,6 +127,8 @@ router.post('/', async (req, res) => {
         image || null,
         product1_image || null,
         product2_image || null,
+        product1_variants ? JSON.stringify(product1_variants) : null,
+        product2_variants ? JSON.stringify(product2_variants) : null,
         active != null ? (active ? 1 : 0) : 1,
       ],
     });
@@ -132,7 +146,7 @@ router.post('/', async (req, res) => {
 router.put('/:id', async (req, res) => {
   try {
     const id = Number(req.params.id);
-    const { slug, title, subtitle, product1_id, product2_id, offer_price, original_price, image, product1_image, product2_image, active } = req.body;
+    const { slug, title, subtitle, product1_id, product2_id, offer_price, original_price, image, product1_image, product2_image, product1_variants, product2_variants, active } = req.body;
 
     if (!slug || !title || !product1_id || !product2_id || offer_price == null) {
       return error(res, 'Missing required fields', 400);
@@ -140,7 +154,7 @@ router.put('/:id', async (req, res) => {
 
     await db.execute({
       sql: `UPDATE landing_pages SET slug = ?, title = ?, subtitle = ?, product1_id = ?, product2_id = ?,
-            offer_price = ?, original_price = ?, image = ?, product1_image = ?, product2_image = ?, active = ?, updated_at = datetime('now')
+            offer_price = ?, original_price = ?, image = ?, product1_image = ?, product2_image = ?, product1_variants = ?, product2_variants = ?, active = ?, updated_at = datetime('now')
             WHERE id = ?`,
       args: [
         slug,
@@ -153,6 +167,8 @@ router.put('/:id', async (req, res) => {
         image || null,
         product1_image || null,
         product2_image || null,
+        product1_variants ? JSON.stringify(product1_variants) : null,
+        product2_variants ? JSON.stringify(product2_variants) : null,
         active != null ? (active ? 1 : 0) : 1,
         id,
       ],
