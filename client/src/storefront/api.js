@@ -56,3 +56,7 @@ export function fetchCenters({ wilayaId, communeId }) {
 export function fetchReviewMedia() {
   return request('/api/reviews');
 }
+
+export function fetchLandingPage(slug) {
+  return request(`/api/landing-pages/${slug}`);
+}

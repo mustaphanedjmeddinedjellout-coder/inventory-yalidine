@@ -127,6 +127,28 @@ async function initializeDatabase() {
       sort_order INTEGER NOT NULL DEFAULT 0,
       created_at TEXT DEFAULT (datetime('now'))
     );
+
+    CREATE TABLE IF NOT EXISTS landing_pages (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      slug TEXT NOT NULL UNIQUE,
+      title TEXT NOT NULL,
+      subtitle TEXT,
+      product1_id INTEGER NOT NULL,
+      product2_id INTEGER NOT NULL,
+      offer_price REAL NOT NULL CHECK(offer_price >= 0),
+      original_price REAL,
+      image TEXT,
+      product1_image TEXT,
+      product2_image TEXT,
+      active INTEGER NOT NULL DEFAULT 1,
+      created_at TEXT DEFAULT (datetime('now')),
+      updated_at TEXT DEFAULT (datetime('now')),
+      FOREIGN KEY (product1_id) REFERENCES products(id),
+      FOREIGN KEY (product2_id) REFERENCES products(id)
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_landing_pages_slug ON landing_pages(slug);
+    CREATE INDEX IF NOT EXISTS idx_landing_pages_active ON landing_pages(active);
   `);
 }
 
@@ -167,6 +189,20 @@ async function setupDatabase() {
   if (!productCols.includes('description')) {
     await db.execute('ALTER TABLE products ADD COLUMN description TEXT');
   }
+
+  // Migrate landing_pages if it already existed without image columns
+  try {
+    const lpColsResult = await db.execute("PRAGMA table_info('landing_pages')");
+    const lpCols = lpColsResult.rows.map(r => r.name);
+    if (lpCols.length > 0) {
+      if (!lpCols.includes('product1_image')) {
+        await db.execute('ALTER TABLE landing_pages ADD COLUMN product1_image TEXT');
+      }
+      if (!lpCols.includes('product2_image')) {
+        await db.execute('ALTER TABLE landing_pages ADD COLUMN product2_image TEXT');
+      }
+    }
+  } catch { /* table may not exist yet, that's fine */ }
 
   // Auto-seed if empty
   const seedIfEmpty = require('./seed');

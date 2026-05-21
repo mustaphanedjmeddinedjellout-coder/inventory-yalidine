@@ -13,7 +13,9 @@ import Product from './storefront/pages/Product';
 import Cart from './storefront/pages/Cart';
 import Checkout from './storefront/pages/Checkout';
 import OrderSuccess from './storefront/pages/OrderSuccess';
+import LandingOffer from './storefront/pages/LandingOffer';
 import { CartProvider } from './storefront/cart-context';
+import LandingPages from './pages/LandingPages';
 import AdminGuard from './admin/AdminGuard';
 import AdminLogin from './admin/AdminLogin';
 
@@ -79,6 +81,7 @@ function App() {
             <Route path="/cart" element={<Cart />} />
             <Route path="/checkout" element={<Checkout />} />
             <Route path="/order-success/:id" element={<OrderSuccess />} />
+            <Route path="/offer/:slug" element={<LandingOffer />} />
           </Route>
 
           <Route path="/admin/login" element={<AdminLogin />} />
@@ -95,6 +98,7 @@ function App() {
             <Route path="orders" element={<Orders />} />
             <Route path="analytics" element={<Analytics />} />
             <Route path="reviews" element={<Reviews />} />
+            <Route path="landing-pages" element={<LandingPages />} />
           </Route>
         </Routes>
       </CartProvider>

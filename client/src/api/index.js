@@ -55,3 +55,11 @@ export const reviewApi = {
   update: (id, data) => api.put(`/reviews/${id}`, data),
   delete: (id) => api.delete(`/reviews/${id}`),
 };
+
+export const landingPageApi = {
+  getAll: () => api.get('/landing-pages'),
+  getBySlug: (slug) => api.get(`/landing-pages/${slug}`),
+  create: (data) => api.post('/landing-pages', data),
+  update: (id, data) => api.put(`/landing-pages/${id}`, data),
+  delete: (id) => api.delete(`/landing-pages/${id}`),
+};
