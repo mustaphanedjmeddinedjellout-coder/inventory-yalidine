@@ -407,7 +407,7 @@ export default function LandingOffer() {
   const discount = data.original_price ? Math.round(((data.original_price - data.offer_price) / data.original_price) * 100) : 0;
 
   return (
-    <div className="container-bleed py-6 pb-36 sm:py-10 sm:pb-12">
+    <div className="container-bleed py-6 pb-28 sm:py-10 sm:pb-28">
       {/* Hero section */}
       <div className="text-center mb-8">
         {discount > 0 && (
@@ -682,7 +682,14 @@ export default function LandingOffer() {
             </div>
           </div>
 
-          {/* Submit */}
+        </div>
+      </div>
+
+      <CustomerReviews />
+
+      {/* Fixed bottom order button */}
+      <div className="fixed bottom-0 inset-x-0 z-50 bg-white/95 backdrop-blur-md border-t border-black/10 px-4 py-3 safe-bottom">
+        <div className="max-w-lg mx-auto">
           <button
             type="button"
             className="w-full rounded-full bg-black text-white py-3.5 text-[13px] font-semibold uppercase tracking-wider hover:bg-black/90 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
@@ -693,8 +700,6 @@ export default function LandingOffer() {
           </button>
         </div>
       </div>
-
-      <CustomerReviews />
     </div>
   );
 }
