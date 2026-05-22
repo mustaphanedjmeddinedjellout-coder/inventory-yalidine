@@ -73,14 +73,14 @@ router.get('/:slug', async (req, res) => {
       return error(res, 'Products not found', 404);
     }
 
-    const p1AllowedIds = page.product1_variants ? JSON.parse(page.product1_variants) : null;
-    const p2AllowedIds = page.product2_variants ? JSON.parse(page.product2_variants) : null;
+    const p1AllowedColors = page.product1_variants ? JSON.parse(page.product1_variants) : null;
+    const p2AllowedColors = page.product2_variants ? JSON.parse(page.product2_variants) : null;
 
-    if (p1AllowedIds && product1) {
-      product1.variants = product1.variants.filter(v => p1AllowedIds.includes(v.id));
+    if (p1AllowedColors && p1AllowedColors.length > 0 && product1) {
+      product1.variants = product1.variants.filter(v => p1AllowedColors.includes(String(v.color || '').trim()));
     }
-    if (p2AllowedIds && product2) {
-      product2.variants = product2.variants.filter(v => p2AllowedIds.includes(v.id));
+    if (p2AllowedColors && p2AllowedColors.length > 0 && product2) {
+      product2.variants = product2.variants.filter(v => p2AllowedColors.includes(String(v.color || '').trim()));
     }
 
     success(res, {

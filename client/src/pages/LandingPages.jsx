@@ -22,15 +22,26 @@ const emptyForm = {
   active: true,
 };
 
-function VariantPicker({ label, product, selectedIds, onChange }) {
+function ColorPicker({ label, product, selectedColors, onChange }) {
   const variants = product?.variants || [];
   if (!product || variants.length === 0) return null;
 
-  function toggle(variantId) {
-    if (selectedIds.includes(variantId)) {
-      onChange(selectedIds.filter((id) => id !== variantId));
+  const uniqueColors = useMemo(() => {
+    const map = new Map();
+    for (const v of variants) {
+      const color = String(v.color || '').trim();
+      if (!color || map.has(color)) continue;
+      const totalQty = variants.filter((x) => x.color === color).reduce((sum, x) => sum + (x.quantity || 0), 0);
+      map.set(color, totalQty);
+    }
+    return Array.from(map.entries()).map(([color, qty]) => ({ color, qty }));
+  }, [variants]);
+
+  function toggle(color) {
+    if (selectedColors.includes(color)) {
+      onChange(selectedColors.filter((c) => c !== color));
     } else {
-      onChange([...selectedIds, variantId]);
+      onChange([...selectedColors, color]);
     }
   }
 
@@ -38,29 +49,28 @@ function VariantPicker({ label, product, selectedIds, onChange }) {
     <div>
       <label className="block text-sm font-medium text-gray-700 mb-2">{label}</label>
       <div className="flex flex-wrap gap-2">
-        {variants.map((v) => {
-          const isSelected = selectedIds.includes(v.id);
-          const comboLabel = `${v.color} - ${v.size}`;
+        {uniqueColors.map(({ color, qty }) => {
+          const isSelected = selectedColors.includes(color);
           return (
             <button
-              key={v.id}
+              key={color}
               type="button"
-              onClick={() => toggle(v.id)}
+              onClick={() => toggle(color)}
               className={`text-xs px-3 py-1.5 rounded-full border transition-all ${
                 isSelected
                   ? 'bg-blue-600 text-white border-blue-600'
-                  : v.quantity > 0
+                  : qty > 0
                   ? 'border-gray-300 text-gray-700 hover:border-blue-400'
                   : 'border-gray-200 text-gray-300 line-through'
               }`}
             >
-              {comboLabel} {v.quantity > 0 ? `(${v.quantity})` : '(0)'}
+              {color} ({qty})
             </button>
           );
         })}
       </div>
       <p className="text-[10px] text-gray-400 mt-1">
-        {selectedIds.length === 0 ? 'لم تحدد أي كومبو — سيظهر الكل للعميل' : `${selectedIds.length} كومبو محدد`}
+        {selectedColors.length === 0 ? 'لم تحدد أي لون — سيظهر الكل للعميل' : `${selectedColors.length} لون محدد`}
       </p>
     </div>
   );
@@ -397,25 +407,25 @@ export default function LandingPages() {
             </div>
           </div>
 
-          {/* Variant Combos */}
+          {/* Color Selection */}
           {(form.product1_id || form.product2_id) && (
             <div className="border-t border-gray-100 pt-4 space-y-4">
-              <p className="text-sm font-semibold text-gray-700">الكومبوهات المتاحة للعميل</p>
-              <p className="text-[11px] text-gray-400">اختر الكومبوهات (لون + مقاس) التي تريد عرضها. إذا لم تختر شيء، سيظهر الكل.</p>
+              <p className="text-sm font-semibold text-gray-700">الألوان المتاحة للعميل</p>
+              <p className="text-[11px] text-gray-400">اختر الألوان التي تريد عرضها. المقاسات تظهر كلها تلقائيا. إذا لم تختر شيء، تظهر كل الألوان.</p>
               {form.product1_id && (
-                <VariantPicker
-                  label={`كومبوهات المنتج الأول (${product1Data?.model_name || ''})`}
+                <ColorPicker
+                  label={`ألوان المنتج الأول (${product1Data?.model_name || ''})`}
                   product={product1Data}
-                  selectedIds={form.product1_variants}
-                  onChange={(ids) => set('product1_variants', ids)}
+                  selectedColors={form.product1_variants}
+                  onChange={(colors) => set('product1_variants', colors)}
                 />
               )}
               {form.product2_id && (
-                <VariantPicker
-                  label={`كومبوهات المنتج الثاني (${product2Data?.model_name || ''})`}
+                <ColorPicker
+                  label={`ألوان المنتج الثاني (${product2Data?.model_name || ''})`}
                   product={product2Data}
-                  selectedIds={form.product2_variants}
-                  onChange={(ids) => set('product2_variants', ids)}
+                  selectedColors={form.product2_variants}
+                  onChange={(colors) => set('product2_variants', colors)}
                 />
               )}
             </div>

@@ -10,27 +10,78 @@ function normalizeText(value) {
   return String(value || '').trim().toLowerCase();
 }
 
-function ProductSelector({ product, label, selectedVariantId, onSelect, customImage }) {
-  const variants = product?.variants || [];
-  const selectedVariant = variants.find((v) => v.id === selectedVariantId);
+const SIZE_PRIORITY = ['XS', 'S', 'M', 'L', 'XL', 'XXL'];
 
-  const displayImage = useMemo(() => {
-    if (customImage) return customImage;
-    if (selectedVariant) {
-      const colorKey = normalizeText(selectedVariant.color);
-      const extraImages = product?.color_images?.[colorKey] || [];
-      if (extraImages.length > 0) return extraImages[0];
-      if (selectedVariant.image) return selectedVariant.image;
+function sortSizes(sizes) {
+  return [...sizes].sort((a, b) => {
+    const left = a.toUpperCase();
+    const right = b.toUpperCase();
+    const li = SIZE_PRIORITY.indexOf(left);
+    const ri = SIZE_PRIORITY.indexOf(right);
+    if (li !== -1 || ri !== -1) {
+      if (li === -1) return 1;
+      if (ri === -1) return -1;
+      return li - ri;
     }
-    return product?.image || '';
-  }, [customImage, selectedVariant, product]);
+    return left.localeCompare(right, undefined, { numeric: true, sensitivity: 'base' });
+  });
+}
+
+function ProductSelector({ product, label, selection, onSelectionChange, customImage }) {
+  const variants = product?.variants || [];
+
+  const colors = useMemo(() => {
+    const map = new Map();
+    for (const v of variants) {
+      const lbl = String(v.color || '').trim();
+      const key = normalizeText(lbl);
+      if (!key || map.has(key)) continue;
+      map.set(key, lbl);
+    }
+    return Array.from(map.entries()).map(([value, lbl]) => ({ value, label: lbl }));
+  }, [variants]);
+
+  const sizes = useMemo(() => {
+    const unique = Array.from(new Set(variants.map((v) => String(v.size || '').trim()))).filter(Boolean);
+    return sortSizes(unique);
+  }, [variants]);
+
+  const selectedVariant = useMemo(
+    () => variants.find(
+      (v) => normalizeText(v.color) === normalizeText(selection.color) && normalizeText(v.size) === normalizeText(selection.size)
+    ),
+    [variants, selection.color, selection.size]
+  );
+
+  const colorImage = useMemo(() => {
+    if (customImage) return customImage;
+    const colorKey = normalizeText(selection.color);
+    const extraImages = product?.color_images?.[colorKey] || [];
+    if (extraImages.length > 0) return extraImages[0];
+    const variantImg = variants.find((v) => normalizeText(v.color) === colorKey && v.image)?.image;
+    return variantImg || product?.image || '';
+  }, [customImage, variants, selection.color, product]);
+
+  function selectColor(color) {
+    const hasSize = variants.some(
+      (v) => normalizeText(v.color) === color.value && normalizeText(v.size) === normalizeText(selection.size) && v.quantity > 0
+    );
+    if (hasSize) {
+      onSelectionChange({ color: color.label, size: selection.size });
+    } else {
+      const first = variants.find((v) => normalizeText(v.color) === color.value && v.quantity > 0);
+      onSelectionChange({ color: color.label, size: first?.size || selection.size });
+    }
+  }
+
+  const maxQty = selectedVariant?.quantity || 0;
 
   return (
     <div className="rounded-2xl border border-black/10 bg-white/70 p-4 space-y-4">
       <div className="flex gap-4">
         <div className="w-24 h-28 flex-shrink-0 rounded-xl overflow-hidden bg-[#f5f1ea]">
           <SmartImage
-            src={resolveImageUrl(displayImage)}
+            src={resolveImageUrl(colorImage)}
             alt={product.model_name}
             className="h-full w-full object-cover"
           />
@@ -38,39 +89,72 @@ function ProductSelector({ product, label, selectedVariantId, onSelect, customIm
         <div className="flex-1 min-w-0">
           <p className="text-[11px] uppercase tracking-[0.2em] text-black/40 mb-1">{label}</p>
           <h3 className="text-[15px] font-semibold text-ink truncate">{product.model_name}</h3>
-          {selectedVariant && (
-            <p className="text-[12px] text-black/55 mt-1">{selectedVariant.color} · {selectedVariant.size}</p>
+          {maxQty > 0 && maxQty < 3 && (
+            <p className="text-[11px] text-red-500 font-medium mt-1">كمية قليلة</p>
+          )}
+          {maxQty === 0 && selectedVariant && (
+            <p className="text-[11px] text-red-500 font-medium mt-1">غير متوفر</p>
           )}
         </div>
       </div>
 
-      <div>
-        <p className="text-[11px] uppercase tracking-[0.2em] text-black/40 mb-2">اختر اللون والمقاس</p>
-        <div className="flex flex-wrap gap-2">
-          {variants.map((v) => {
-            const isSelected = v.id === selectedVariantId;
-            const isAvailable = v.quantity > 0;
-            const comboLabel = `${v.color} - ${v.size}`;
-            return (
-              <button
-                key={v.id}
-                type="button"
-                disabled={!isAvailable}
-                onClick={() => onSelect(v.id)}
-                className={`rounded-full border px-3 py-1.5 text-[11px] tracking-wider transition-all ${
-                  isSelected
-                    ? 'border-black bg-black text-white'
-                    : isAvailable
-                    ? 'border-black/20 text-black/70 hover:border-black'
-                    : 'border-black/10 text-black/30 line-through'
-                }`}
-              >
-                {comboLabel}
-              </button>
-            );
-          })}
+      {colors.length > 0 && (
+        <div>
+          <p className="text-[11px] uppercase tracking-[0.2em] text-black/40 mb-2">اللون</p>
+          <div className="flex flex-wrap gap-2">
+            {colors.map((color) => {
+              const isAvailable = variants.some((v) => normalizeText(v.color) === color.value && v.quantity > 0);
+              return (
+                <button
+                  key={color.value}
+                  type="button"
+                  disabled={!isAvailable}
+                  onClick={() => selectColor(color)}
+                  className={`rounded-full border px-3 py-1.5 text-[11px] uppercase tracking-wider transition-all ${
+                    normalizeText(selection.color) === color.value
+                      ? 'border-black bg-black text-white'
+                      : isAvailable
+                      ? 'border-black/20 text-black/70 hover:border-black'
+                      : 'border-black/10 text-black/30'
+                  }`}
+                >
+                  {color.label}
+                </button>
+              );
+            })}
+          </div>
         </div>
-      </div>
+      )}
+
+      {sizes.length > 0 && (
+        <div>
+          <p className="text-[11px] uppercase tracking-[0.2em] text-black/40 mb-2">المقاس</p>
+          <div className="flex flex-wrap gap-2">
+            {sizes.map((size) => {
+              const isAvailable = variants.some(
+                (v) => normalizeText(v.size) === normalizeText(size) && normalizeText(v.color) === normalizeText(selection.color) && v.quantity > 0
+              );
+              return (
+                <button
+                  key={size}
+                  type="button"
+                  disabled={!isAvailable}
+                  onClick={() => onSelectionChange({ ...selection, size })}
+                  className={`rounded-full border px-3 py-1.5 text-[11px] uppercase tracking-wider transition-all ${
+                    normalizeText(selection.size) === normalizeText(size)
+                      ? 'border-black bg-black text-white'
+                      : isAvailable
+                      ? 'border-black/20 text-black/70 hover:border-black'
+                      : 'border-black/10 text-black/30'
+                  }`}
+                >
+                  {size}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -82,8 +166,8 @@ export default function LandingOffer() {
   const [loading, setLoading] = useState(true);
   const [pageError, setPageError] = useState('');
 
-  const [sel1, setSel1] = useState(null);
-  const [sel2, setSel2] = useState(null);
+  const [sel1, setSel1] = useState({ color: '', size: '' });
+  const [sel2, setSel2] = useState({ color: '', size: '' });
 
   // Order form state
   const [form, setForm] = useState({
@@ -165,8 +249,8 @@ export default function LandingOffer() {
         setData(res);
         const v1 = res.product1?.variants?.find((v) => v.quantity > 0);
         const v2 = res.product2?.variants?.find((v) => v.quantity > 0);
-        if (v1) setSel1(v1.id);
-        if (v2) setSel2(v2.id);
+        if (v1) setSel1({ color: v1.color || '', size: v1.size || '' });
+        if (v2) setSel2({ color: v2.color || '', size: v2.size || '' });
       })
       .catch((err) => {
         if (!active) return;
@@ -250,13 +334,17 @@ export default function LandingOffer() {
   }, [form.wilayaId, form.deliveryMethod, form.communeId]);
 
   const variant1 = useMemo(() => {
-    if (!data?.product1 || !sel1) return null;
-    return data.product1.variants.find((v) => v.id === sel1);
+    if (!data?.product1) return null;
+    return data.product1.variants.find(
+      (v) => normalizeText(v.color) === normalizeText(sel1.color) && normalizeText(v.size) === normalizeText(sel1.size)
+    );
   }, [data, sel1]);
 
   const variant2 = useMemo(() => {
-    if (!data?.product2 || !sel2) return null;
-    return data.product2.variants.find((v) => v.id === sel2);
+    if (!data?.product2) return null;
+    return data.product2.variants.find(
+      (v) => normalizeText(v.color) === normalizeText(sel2.color) && normalizeText(v.size) === normalizeText(sel2.size)
+    );
   }, [data, sel2]);
 
   const canOrder = variant1 && variant1.quantity > 0 && variant2 && variant2.quantity > 0;
@@ -427,15 +515,15 @@ export default function LandingOffer() {
         <ProductSelector
           product={data.product1}
           label="المنتج الأول"
-          selectedVariantId={sel1}
-          onSelect={setSel1}
+          selection={sel1}
+          onSelectionChange={setSel1}
           customImage={data.product1_image}
         />
         <ProductSelector
           product={data.product2}
           label="المنتج الثاني"
-          selectedVariantId={sel2}
-          onSelect={setSel2}
+          selection={sel2}
+          onSelectionChange={setSel2}
           customImage={data.product2_image}
         />
 
