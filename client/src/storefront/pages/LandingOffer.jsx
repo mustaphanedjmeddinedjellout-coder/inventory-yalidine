@@ -27,34 +27,19 @@ function sortSizes(sizes) {
   });
 }
 
-function ProductSizeSelector({ product, label, selectedColor, selectedSize, onSizeChange, customImage }) {
+function ProductCard({ product, label, selectedColor }) {
   const variants = product?.variants || [];
 
-  const sizes = useMemo(() => {
-    const unique = Array.from(new Set(variants.map((v) => String(v.size || '').trim()))).filter(Boolean);
-    return sortSizes(unique);
-  }, [variants]);
-
-  const selectedVariant = useMemo(
-    () => variants.find(
-      (v) => normalizeText(v.color) === normalizeText(selectedColor) && normalizeText(v.size) === normalizeText(selectedSize)
-    ),
-    [variants, selectedColor, selectedSize]
-  );
-
   const displayImage = useMemo(() => {
-    if (customImage) return customImage;
     const colorKey = normalizeText(selectedColor);
     const extraImages = product?.color_images?.[colorKey] || [];
     if (extraImages.length > 0) return extraImages[0];
     const variantImg = variants.find((v) => normalizeText(v.color) === colorKey && v.image)?.image;
     return variantImg || product?.image || '';
-  }, [customImage, variants, selectedColor, product]);
-
-  const maxQty = selectedVariant?.quantity || 0;
+  }, [variants, selectedColor, product]);
 
   return (
-    <div className="rounded-2xl border border-black/10 bg-white/70 p-4 space-y-4">
+    <div className="rounded-2xl border border-black/10 bg-white/70 p-4">
       <div className="flex gap-4">
         <div className="w-24 h-28 flex-shrink-0 rounded-xl overflow-hidden bg-[#f5f1ea]">
           <SmartImage
@@ -66,44 +51,11 @@ function ProductSizeSelector({ product, label, selectedColor, selectedSize, onSi
         <div className="flex-1 min-w-0">
           <p className="text-[11px] uppercase tracking-[0.2em] text-black/40 mb-1">{label}</p>
           <h3 className="text-[15px] font-semibold text-ink truncate">{product.model_name}</h3>
-          {maxQty > 0 && maxQty < 3 && (
-            <p className="text-[11px] text-red-500 font-medium mt-1">كمية قليلة</p>
-          )}
-          {maxQty === 0 && selectedVariant && (
-            <p className="text-[11px] text-red-500 font-medium mt-1">غير متوفر</p>
+          {selectedColor && (
+            <p className="text-[12px] text-black/50 mt-1">اللون: {selectedColor}</p>
           )}
         </div>
       </div>
-
-      {sizes.length > 0 && (
-        <div>
-          <p className="text-[11px] uppercase tracking-[0.2em] text-black/40 mb-2">المقاس</p>
-          <div className="flex flex-wrap gap-2">
-            {sizes.map((size) => {
-              const isAvailable = variants.some(
-                (v) => normalizeText(v.size) === normalizeText(size) && normalizeText(v.color) === normalizeText(selectedColor) && v.quantity > 0
-              );
-              return (
-                <button
-                  key={size}
-                  type="button"
-                  disabled={!isAvailable}
-                  onClick={() => onSizeChange(size)}
-                  className={`rounded-full border px-3 py-1.5 text-[11px] uppercase tracking-wider transition-all ${
-                    normalizeText(selectedSize) === normalizeText(size)
-                      ? 'border-black bg-black text-white'
-                      : isAvailable
-                      ? 'border-black/20 text-black/70 hover:border-black'
-                      : 'border-black/10 text-black/30'
-                  }`}
-                >
-                  {size}
-                </button>
-              );
-            })}
-          </div>
-        </div>
-      )}
     </div>
   );
 }
@@ -116,8 +68,7 @@ export default function LandingOffer() {
   const [pageError, setPageError] = useState('');
 
   const [selectedComboIdx, setSelectedComboIdx] = useState(0);
-  const [size1, setSize1] = useState('');
-  const [size2, setSize2] = useState('');
+  const [selectedSize, setSelectedSize] = useState('');
 
   // Order form state
   const [form, setForm] = useState({
@@ -202,14 +153,10 @@ export default function LandingOffer() {
         if (combos.length > 0) {
           const c = combos[0];
           const v1 = res.product1?.variants?.find((v) => normalizeText(v.color) === normalizeText(c.p1_color) && v.quantity > 0);
-          const v2 = res.product2?.variants?.find((v) => normalizeText(v.color) === normalizeText(c.p2_color) && v.quantity > 0);
-          if (v1) setSize1(v1.size || '');
-          if (v2) setSize2(v2.size || '');
+          if (v1) setSelectedSize(v1.size || '');
         } else {
           const v1 = res.product1?.variants?.find((v) => v.quantity > 0);
-          const v2 = res.product2?.variants?.find((v) => v.quantity > 0);
-          if (v1) setSize1(v1.size || '');
-          if (v2) setSize2(v2.size || '');
+          if (v1) setSelectedSize(v1.size || '');
         }
       })
       .catch((err) => {
@@ -302,16 +249,27 @@ export default function LandingOffer() {
   const variant1 = useMemo(() => {
     if (!data?.product1 || !p1Color) return null;
     return data.product1.variants.find(
-      (v) => normalizeText(v.color) === normalizeText(p1Color) && normalizeText(v.size) === normalizeText(size1)
+      (v) => normalizeText(v.color) === normalizeText(p1Color) && normalizeText(v.size) === normalizeText(selectedSize)
     );
-  }, [data, p1Color, size1]);
+  }, [data, p1Color, selectedSize]);
 
   const variant2 = useMemo(() => {
     if (!data?.product2 || !p2Color) return null;
     return data.product2.variants.find(
-      (v) => normalizeText(v.color) === normalizeText(p2Color) && normalizeText(v.size) === normalizeText(size2)
+      (v) => normalizeText(v.color) === normalizeText(p2Color) && normalizeText(v.size) === normalizeText(selectedSize)
     );
-  }, [data, p2Color, size2]);
+  }, [data, p2Color, selectedSize]);
+
+  // Shared sizes — only show sizes available in BOTH products for the selected combo colors
+  const sharedSizes = useMemo(() => {
+    if (!data?.product1 || !data?.product2) return [];
+    const p1Variants = data.product1.variants || [];
+    const p2Variants = data.product2.variants || [];
+    const p1Sizes = new Set(p1Variants.filter((v) => normalizeText(v.color) === normalizeText(p1Color)).map((v) => String(v.size || '').trim()));
+    const p2Sizes = new Set(p2Variants.filter((v) => normalizeText(v.color) === normalizeText(p2Color)).map((v) => String(v.size || '').trim()));
+    const shared = [...p1Sizes].filter((s) => s && p2Sizes.has(s));
+    return sortSizes(shared);
+  }, [data, p1Color, p2Color]);
 
   const canOrder = variant1 && variant1.quantity > 0 && variant2 && variant2.quantity > 0;
 
@@ -498,10 +456,12 @@ export default function LandingOffer() {
                     type="button"
                     onClick={() => {
                       setSelectedComboIdx(idx);
-                      const v1 = data.product1.variants.find((v) => normalizeText(v.color) === normalizeText(combo.p1_color) && v.quantity > 0);
-                      const v2 = data.product2.variants.find((v) => normalizeText(v.color) === normalizeText(combo.p2_color) && v.quantity > 0);
-                      if (v1) setSize1(v1.size || '');
-                      if (v2) setSize2(v2.size || '');
+                      // Find first size available in both products for this combo
+                      const p1v = data.product1.variants.filter((v) => normalizeText(v.color) === normalizeText(combo.p1_color) && v.quantity > 0);
+                      const p2v = data.product2.variants.filter((v) => normalizeText(v.color) === normalizeText(combo.p2_color) && v.quantity > 0);
+                      const p2Sizes = new Set(p2v.map((v) => normalizeText(v.size)));
+                      const firstShared = p1v.find((v) => p2Sizes.has(normalizeText(v.size)));
+                      setSelectedSize(firstShared?.size || p1v[0]?.size || '');
                     }}
                     className={`rounded-full border px-3 py-1.5 text-[11px] uppercase tracking-wider transition-all ${
                       selectedComboIdx === idx
@@ -517,23 +477,46 @@ export default function LandingOffer() {
           </div>
         )}
 
-        <ProductSizeSelector
-          product={data.product1}
-          label="المنتج الأول"
-          selectedColor={p1Color}
-          selectedSize={size1}
-          onSizeChange={setSize1}
-        />
-        <ProductSizeSelector
-          product={data.product2}
-          label="المنتج الثاني"
-          selectedColor={p2Color}
-          selectedSize={size2}
-          onSizeChange={setSize2}
-        />
+        <ProductCard product={data.product1} label="المنتج الأول" selectedColor={p1Color} />
+        <ProductCard product={data.product2} label="المنتج الثاني" selectedColor={p2Color} />
+
+        {/* Shared size picker */}
+        {sharedSizes.length > 0 && (
+          <div className="rounded-2xl border border-black/10 bg-white/70 p-4">
+            <p className="text-[11px] uppercase tracking-[0.2em] text-black/40 mb-2">المقاس</p>
+            <div className="flex flex-wrap gap-2">
+              {sharedSizes.map((size) => {
+                const p1Ok = (data.product1.variants || []).some(
+                  (v) => normalizeText(v.color) === normalizeText(p1Color) && normalizeText(v.size) === normalizeText(size) && v.quantity > 0
+                );
+                const p2Ok = (data.product2.variants || []).some(
+                  (v) => normalizeText(v.color) === normalizeText(p2Color) && normalizeText(v.size) === normalizeText(size) && v.quantity > 0
+                );
+                const isAvailable = p1Ok && p2Ok;
+                return (
+                  <button
+                    key={size}
+                    type="button"
+                    disabled={!isAvailable}
+                    onClick={() => setSelectedSize(size)}
+                    className={`rounded-full border px-3 py-1.5 text-[11px] uppercase tracking-wider transition-all ${
+                      normalizeText(selectedSize) === normalizeText(size)
+                        ? 'border-black bg-black text-white'
+                        : isAvailable
+                        ? 'border-black/20 text-black/70 hover:border-black'
+                        : 'border-black/10 text-black/30'
+                    }`}
+                  >
+                    {size}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
 
         {!canOrder && (
-          <p className="text-center text-[12px] text-red-500">يرجى اختيار المقاس المتوفر لكلا المنتجين</p>
+          <p className="text-center text-[12px] text-red-500">يرجى اختيار المقاس المتوفر</p>
         )}
 
         <TrustStrip />
