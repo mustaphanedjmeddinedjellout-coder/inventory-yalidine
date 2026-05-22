@@ -477,9 +477,6 @@ export default function LandingOffer() {
           </div>
         )}
 
-        <ProductCard product={data.product1} label="المنتج الأول" selectedColor={p1Color} />
-        <ProductCard product={data.product2} label="المنتج الثاني" selectedColor={p2Color} />
-
         {/* Shared size picker */}
         {sharedSizes.length > 0 && (
           <div className="rounded-2xl border border-black/10 bg-white/70 p-4">
