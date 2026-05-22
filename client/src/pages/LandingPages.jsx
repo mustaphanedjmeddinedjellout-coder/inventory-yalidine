@@ -19,6 +19,7 @@ const emptyForm = {
   product2_image: '',
   product1_variants: [],
   product2_variants: [],
+  color_images: {},
   active: true,
 };
 
@@ -176,6 +177,25 @@ export default function LandingPages() {
     }
   }
 
+  async function uploadColorImage(color, file) {
+    if (!file) return;
+    const key = `color_${color}`;
+    try {
+      setUploading((prev) => ({ ...prev, [key]: true }));
+      const formData = new FormData();
+      formData.append('file', file);
+      const res = await productApi.uploadImage(formData);
+      const imagePath = res.data?.path;
+      if (!imagePath) throw new Error('Upload failed');
+      setForm((prev) => ({ ...prev, color_images: { ...prev.color_images, [color]: imagePath } }));
+      toast.success('تم رفع الصورة');
+    } catch (err) {
+      toast.error(err.message || 'تعذر رفع الصورة');
+    } finally {
+      setUploading((prev) => ({ ...prev, [key]: false }));
+    }
+  }
+
   function openCreate() {
     setEditing(null);
     setForm({ ...emptyForm });
@@ -199,6 +219,7 @@ export default function LandingPages() {
       product2_image: page.product2_image || '',
       product1_variants: p1v,
       product2_variants: p2v,
+      color_images: page.color_images ? (typeof page.color_images === 'string' ? JSON.parse(page.color_images) : page.color_images) : {},
       active: Boolean(page.active),
     });
     setModalOpen(true);
@@ -225,6 +246,7 @@ export default function LandingPages() {
         product2_image: form.product2_image || null,
         product1_variants: form.product1_variants.length > 0 ? form.product1_variants : null,
         product2_variants: form.product2_variants.length > 0 ? form.product2_variants : null,
+        color_images: Object.keys(form.color_images).length > 0 ? form.color_images : null,
         active: form.active,
       };
 
@@ -427,6 +449,23 @@ export default function LandingPages() {
                   selectedColors={form.product2_variants}
                   onChange={(colors) => set('product2_variants', colors)}
                 />
+              )}
+
+              {/* Per-color images */}
+              {form.product1_variants.length > 0 && (
+                <div className="space-y-3 pt-2">
+                  <p className="text-sm font-medium text-gray-600">صورة لكل لون</p>
+                  {form.product1_variants.map((color) => (
+                    <ImageUploadField
+                      key={color}
+                      label={`صورة: ${color}`}
+                      value={form.color_images[color] || ''}
+                      onChange={(val) => set('color_images', { ...form.color_images, [color]: val })}
+                      uploading={uploading[`color_${color}`]}
+                      onUpload={(file) => uploadColorImage(color, file)}
+                    />
+                  ))}
+                </div>
               )}
             </div>
           )}

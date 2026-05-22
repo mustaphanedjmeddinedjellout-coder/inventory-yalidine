@@ -142,6 +142,7 @@ async function initializeDatabase() {
       product2_image TEXT,
       product1_variants TEXT,
       product2_variants TEXT,
+      color_images TEXT,
       active INTEGER NOT NULL DEFAULT 1,
       created_at TEXT DEFAULT (datetime('now')),
       updated_at TEXT DEFAULT (datetime('now')),
@@ -208,6 +209,9 @@ async function setupDatabase() {
       }
       if (!lpCols.includes('product2_variants')) {
         await db.execute('ALTER TABLE landing_pages ADD COLUMN product2_variants TEXT');
+      }
+      if (!lpCols.includes('color_images')) {
+        await db.execute('ALTER TABLE landing_pages ADD COLUMN color_images TEXT');
       }
     }
   } catch { /* table may not exist yet, that's fine */ }
