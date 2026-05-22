@@ -73,14 +73,14 @@ router.get('/:slug', async (req, res) => {
       return error(res, 'Products not found', 404);
     }
 
-    const p1AllowedColors = page.product1_variants ? JSON.parse(page.product1_variants) : null;
-    const p2AllowedColors = page.product2_variants ? JSON.parse(page.product2_variants) : null;
+    const colorCombos = page.color_combos ? JSON.parse(page.color_combos) : [];
 
-    if (p1AllowedColors && p1AllowedColors.length > 0 && product1) {
-      product1.variants = product1.variants.filter(v => p1AllowedColors.includes(String(v.color || '').trim()));
-    }
-    if (p2AllowedColors && p2AllowedColors.length > 0 && product2) {
-      product2.variants = product2.variants.filter(v => p2AllowedColors.includes(String(v.color || '').trim()));
+    // Filter each product's variants to only colors used in combos
+    if (colorCombos.length > 0) {
+      const p1Colors = new Set(colorCombos.map(c => c.p1_color));
+      const p2Colors = new Set(colorCombos.map(c => c.p2_color));
+      product1.variants = product1.variants.filter(v => p1Colors.has(String(v.color || '').trim()));
+      product2.variants = product2.variants.filter(v => p2Colors.has(String(v.color || '').trim()));
     }
 
     success(res, {
@@ -91,11 +91,7 @@ router.get('/:slug', async (req, res) => {
       offer_price: page.offer_price,
       original_price: page.original_price,
       image: page.image,
-      product1_image: page.product1_image || null,
-      product2_image: page.product2_image || null,
-      product1_variants: p1AllowedColors,
-      product2_variants: p2AllowedColors,
-      color_images: page.color_images ? JSON.parse(page.color_images) : {},
+      color_combos: colorCombos,
       active: page.active,
       product1,
       product2,
@@ -108,15 +104,15 @@ router.get('/:slug', async (req, res) => {
 // POST /api/landing-pages - create
 router.post('/', async (req, res) => {
   try {
-    const { slug, title, subtitle, product1_id, product2_id, offer_price, original_price, image, product1_image, product2_image, product1_variants, product2_variants, color_images, active } = req.body;
+    const { slug, title, subtitle, product1_id, product2_id, offer_price, original_price, image, color_combos, active } = req.body;
 
     if (!slug || !title || !product1_id || !product2_id || offer_price == null) {
       return error(res, 'Missing required fields: slug, title, product1_id, product2_id, offer_price', 400);
     }
 
     const result = await db.execute({
-      sql: `INSERT INTO landing_pages (slug, title, subtitle, product1_id, product2_id, offer_price, original_price, image, product1_image, product2_image, product1_variants, product2_variants, color_images, active)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      sql: `INSERT INTO landing_pages (slug, title, subtitle, product1_id, product2_id, offer_price, original_price, image, color_combos, active)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       args: [
         slug,
         title,
@@ -126,11 +122,7 @@ router.post('/', async (req, res) => {
         Number(offer_price),
         original_price != null ? Number(original_price) : null,
         image || null,
-        product1_image || null,
-        product2_image || null,
-        product1_variants ? JSON.stringify(product1_variants) : null,
-        product2_variants ? JSON.stringify(product2_variants) : null,
-        color_images ? JSON.stringify(color_images) : null,
+        color_combos ? JSON.stringify(color_combos) : null,
         active != null ? (active ? 1 : 0) : 1,
       ],
     });
@@ -148,7 +140,7 @@ router.post('/', async (req, res) => {
 router.put('/:id', async (req, res) => {
   try {
     const id = Number(req.params.id);
-    const { slug, title, subtitle, product1_id, product2_id, offer_price, original_price, image, product1_image, product2_image, product1_variants, product2_variants, color_images, active } = req.body;
+    const { slug, title, subtitle, product1_id, product2_id, offer_price, original_price, image, color_combos, active } = req.body;
 
     if (!slug || !title || !product1_id || !product2_id || offer_price == null) {
       return error(res, 'Missing required fields', 400);
@@ -156,7 +148,7 @@ router.put('/:id', async (req, res) => {
 
     await db.execute({
       sql: `UPDATE landing_pages SET slug = ?, title = ?, subtitle = ?, product1_id = ?, product2_id = ?,
-            offer_price = ?, original_price = ?, image = ?, product1_image = ?, product2_image = ?, product1_variants = ?, product2_variants = ?, color_images = ?, active = ?, updated_at = datetime('now')
+            offer_price = ?, original_price = ?, image = ?, color_combos = ?, active = ?, updated_at = datetime('now')
             WHERE id = ?`,
       args: [
         slug,
@@ -167,11 +159,7 @@ router.put('/:id', async (req, res) => {
         Number(offer_price),
         original_price != null ? Number(original_price) : null,
         image || null,
-        product1_image || null,
-        product2_image || null,
-        product1_variants ? JSON.stringify(product1_variants) : null,
-        product2_variants ? JSON.stringify(product2_variants) : null,
-        color_images ? JSON.stringify(color_images) : null,
+        color_combos ? JSON.stringify(color_combos) : null,
         active != null ? (active ? 1 : 0) : 1,
         id,
       ],

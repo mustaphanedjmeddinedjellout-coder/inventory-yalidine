@@ -15,66 +15,19 @@ const emptyForm = {
   offer_price: '',
   original_price: '',
   image: '',
-  product1_image: '',
-  product2_image: '',
-  product1_variants: [],
-  product2_variants: [],
-  color_images: {},
+  color_combos: [],
   active: true,
 };
 
-function ColorPicker({ label, product, selectedColors, onChange }) {
-  const variants = product?.variants || [];
-  if (!product || variants.length === 0) return null;
-
-  const uniqueColors = useMemo(() => {
-    const map = new Map();
-    for (const v of variants) {
-      const color = String(v.color || '').trim();
-      if (!color || map.has(color)) continue;
-      const totalQty = variants.filter((x) => x.color === color).reduce((sum, x) => sum + (x.quantity || 0), 0);
-      map.set(color, totalQty);
-    }
-    return Array.from(map.entries()).map(([color, qty]) => ({ color, qty }));
-  }, [variants]);
-
-  function toggle(color) {
-    if (selectedColors.includes(color)) {
-      onChange(selectedColors.filter((c) => c !== color));
-    } else {
-      onChange([...selectedColors, color]);
-    }
+function getUniqueColors(product) {
+  if (!product?.variants) return [];
+  const map = new Map();
+  for (const v of product.variants) {
+    const color = String(v.color || '').trim();
+    if (!color || map.has(color)) continue;
+    map.set(color, true);
   }
-
-  return (
-    <div>
-      <label className="block text-sm font-medium text-gray-700 mb-2">{label}</label>
-      <div className="flex flex-wrap gap-2">
-        {uniqueColors.map(({ color, qty }) => {
-          const isSelected = selectedColors.includes(color);
-          return (
-            <button
-              key={color}
-              type="button"
-              onClick={() => toggle(color)}
-              className={`text-xs px-3 py-1.5 rounded-full border transition-all ${
-                isSelected
-                  ? 'bg-blue-600 text-white border-blue-600'
-                  : qty > 0
-                  ? 'border-gray-300 text-gray-700 hover:border-blue-400'
-                  : 'border-gray-200 text-gray-300 line-through'
-              }`}
-            >
-              {color} ({qty})
-            </button>
-          );
-        })}
-      </div>
-      <p className="text-[10px] text-gray-400 mt-1">
-        {selectedColors.length === 0 ? 'لم تحدد أي لون — سيظهر الكل للعميل' : `${selectedColors.length} لون محدد`}
-      </p>
-    </div>
-  );
+  return Array.from(map.keys());
 }
 
 function ImageUploadField({ label, value, onChange, uploading, onUpload }) {
@@ -177,9 +130,9 @@ export default function LandingPages() {
     }
   }
 
-  async function uploadColorImage(color, file) {
+  async function uploadComboImage(comboIdx, file) {
     if (!file) return;
-    const key = `color_${color}`;
+    const key = `combo_${comboIdx}`;
     try {
       setUploading((prev) => ({ ...prev, [key]: true }));
       const formData = new FormData();
@@ -187,13 +140,39 @@ export default function LandingPages() {
       const res = await productApi.uploadImage(formData);
       const imagePath = res.data?.path;
       if (!imagePath) throw new Error('Upload failed');
-      setForm((prev) => ({ ...prev, color_images: { ...prev.color_images, [color]: imagePath } }));
+      setForm((prev) => {
+        const combos = [...prev.color_combos];
+        combos[comboIdx] = { ...combos[comboIdx], image: imagePath };
+        return { ...prev, color_combos: combos };
+      });
       toast.success('تم رفع الصورة');
     } catch (err) {
       toast.error(err.message || 'تعذر رفع الصورة');
     } finally {
       setUploading((prev) => ({ ...prev, [key]: false }));
     }
+  }
+
+  function addCombo() {
+    setForm((prev) => ({
+      ...prev,
+      color_combos: [...prev.color_combos, { p1_color: '', p2_color: '', image: '' }],
+    }));
+  }
+
+  function removeCombo(idx) {
+    setForm((prev) => ({
+      ...prev,
+      color_combos: prev.color_combos.filter((_, i) => i !== idx),
+    }));
+  }
+
+  function updateCombo(idx, field, value) {
+    setForm((prev) => {
+      const combos = [...prev.color_combos];
+      combos[idx] = { ...combos[idx], [field]: value };
+      return { ...prev, color_combos: combos };
+    });
   }
 
   function openCreate() {
@@ -204,8 +183,9 @@ export default function LandingPages() {
 
   function openEdit(page) {
     setEditing(page);
-    const p1v = page.product1_variants ? (typeof page.product1_variants === 'string' ? JSON.parse(page.product1_variants) : page.product1_variants) : [];
-    const p2v = page.product2_variants ? (typeof page.product2_variants === 'string' ? JSON.parse(page.product2_variants) : page.product2_variants) : [];
+    const combos = page.color_combos
+      ? (typeof page.color_combos === 'string' ? JSON.parse(page.color_combos) : page.color_combos)
+      : [];
     setForm({
       slug: page.slug,
       title: page.title,
@@ -215,11 +195,7 @@ export default function LandingPages() {
       offer_price: String(page.offer_price),
       original_price: page.original_price ? String(page.original_price) : '',
       image: page.image || '',
-      product1_image: page.product1_image || '',
-      product2_image: page.product2_image || '',
-      product1_variants: p1v,
-      product2_variants: p2v,
-      color_images: page.color_images ? (typeof page.color_images === 'string' ? JSON.parse(page.color_images) : page.color_images) : {},
+      color_combos: combos,
       active: Boolean(page.active),
     });
     setModalOpen(true);
@@ -233,6 +209,7 @@ export default function LandingPages() {
 
     setSaving(true);
     try {
+      const validCombos = form.color_combos.filter((c) => c.p1_color && c.p2_color);
       const payload = {
         slug: form.slug.trim().toLowerCase().replace(/\s+/g, '-'),
         title: form.title,
@@ -242,11 +219,7 @@ export default function LandingPages() {
         offer_price: Number(form.offer_price),
         original_price: form.original_price ? Number(form.original_price) : null,
         image: form.image || null,
-        product1_image: form.product1_image || null,
-        product2_image: form.product2_image || null,
-        product1_variants: form.product1_variants.length > 0 ? form.product1_variants : null,
-        product2_variants: form.product2_variants.length > 0 ? form.product2_variants : null,
-        color_images: Object.keys(form.color_images).length > 0 ? form.color_images : null,
+        color_combos: validCombos.length > 0 ? validCombos : null,
         active: form.active,
       };
 
@@ -429,75 +402,78 @@ export default function LandingPages() {
             </div>
           </div>
 
-          {/* Color Selection */}
-          {(form.product1_id || form.product2_id) && (
-            <div className="border-t border-gray-100 pt-4 space-y-4">
-              <p className="text-sm font-semibold text-gray-700">الألوان المتاحة للعميل</p>
-              <p className="text-[11px] text-gray-400">اختر الألوان التي تريد عرضها. المقاسات تظهر كلها تلقائيا. إذا لم تختر شيء، تظهر كل الألوان.</p>
-              {form.product1_id && (
-                <ColorPicker
-                  label={`ألوان المنتج الأول (${product1Data?.model_name || ''})`}
-                  product={product1Data}
-                  selectedColors={form.product1_variants}
-                  onChange={(colors) => set('product1_variants', colors)}
-                />
-              )}
-              {form.product2_id && (
-                <ColorPicker
-                  label={`ألوان المنتج الثاني (${product2Data?.model_name || ''})`}
-                  product={product2Data}
-                  selectedColors={form.product2_variants}
-                  onChange={(colors) => set('product2_variants', colors)}
-                />
+          {/* Color Combos */}
+          {form.product1_id && form.product2_id && (
+            <div className="border-t border-gray-100 pt-4 space-y-3">
+              <div className="flex items-center justify-between">
+                <p className="text-sm font-semibold text-gray-700">كومبوهات الألوان</p>
+                <button type="button" onClick={addCombo} className="flex items-center gap-1 text-xs text-blue-600 hover:text-blue-700 font-medium">
+                  <Plus size={14} /> إضافة كومبو
+                </button>
+              </div>
+              <p className="text-[11px] text-gray-400">كل كومبو = لون من المنتج الأول + لون من المنتج الثاني + صورة. العميل يختار كومبو واحد ثم يحدد المقاسات.</p>
+
+              {form.color_combos.length === 0 && (
+                <p className="text-[12px] text-gray-400 text-center py-3 bg-gray-50 rounded-lg">لا توجد كومبوهات — سيظهر كل الألوان للعميل</p>
               )}
 
-              {/* Per-color images */}
-              {form.product1_variants.length > 0 && (
-                <div className="space-y-3 pt-2">
-                  <p className="text-sm font-medium text-gray-600">صورة لكل لون</p>
-                  {form.product1_variants.map((color) => (
-                    <ImageUploadField
-                      key={color}
-                      label={`صورة: ${color}`}
-                      value={form.color_images[color] || ''}
-                      onChange={(val) => set('color_images', { ...form.color_images, [color]: val })}
-                      uploading={uploading[`color_${color}`]}
-                      onUpload={(file) => uploadColorImage(color, file)}
-                    />
-                  ))}
+              {form.color_combos.map((combo, idx) => (
+                <div key={idx} className="border border-gray-200 rounded-xl p-3 space-y-3 bg-gray-50/50">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-semibold text-gray-500">كومبو {idx + 1}</span>
+                    <button type="button" onClick={() => removeCombo(idx)} className="text-red-500 hover:text-red-600 p-1">
+                      <Trash2 size={14} />
+                    </button>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <label className="text-[11px] text-gray-500 mb-1 block">لون المنتج الأول ({product1Data?.model_name || ''})</label>
+                      <select
+                        className="w-full border border-gray-200 rounded-lg px-2 py-1.5 text-sm"
+                        value={combo.p1_color}
+                        onChange={(e) => updateCombo(idx, 'p1_color', e.target.value)}
+                      >
+                        <option value="">اختر اللون</option>
+                        {getUniqueColors(product1Data).map((c) => (
+                          <option key={c} value={c}>{c}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="text-[11px] text-gray-500 mb-1 block">لون المنتج الثاني ({product2Data?.model_name || ''})</label>
+                      <select
+                        className="w-full border border-gray-200 rounded-lg px-2 py-1.5 text-sm"
+                        value={combo.p2_color}
+                        onChange={(e) => updateCombo(idx, 'p2_color', e.target.value)}
+                      >
+                        <option value="">اختر اللون</option>
+                        {getUniqueColors(product2Data).map((c) => (
+                          <option key={c} value={c}>{c}</option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+                  <ImageUploadField
+                    label="صورة الكومبو"
+                    value={combo.image || ''}
+                    onChange={(val) => updateCombo(idx, 'image', val)}
+                    uploading={uploading[`combo_${idx}`]}
+                    onUpload={(file) => uploadComboImage(idx, file)}
+                  />
                 </div>
-              )}
+              ))}
             </div>
           )}
 
           <div className="border-t border-gray-100 pt-4">
-            <p className="text-sm font-semibold text-gray-700 mb-3">الصور</p>
-            <div className="space-y-3">
-              <ImageUploadField
-                label="صورة البانر الرئيسية"
-                value={form.image}
-                onChange={(val) => set('image', val)}
-                uploading={uploading.image}
-                onUpload={(file) => uploadImage('image', file)}
-              />
-              <div className="grid grid-cols-2 gap-3">
-                <ImageUploadField
-                  label="صورة المنتج الأول (اختيارية)"
-                  value={form.product1_image}
-                  onChange={(val) => set('product1_image', val)}
-                  uploading={uploading.product1_image}
-                  onUpload={(file) => uploadImage('product1_image', file)}
-                />
-                <ImageUploadField
-                  label="صورة المنتج الثاني (اختيارية)"
-                  value={form.product2_image}
-                  onChange={(val) => set('product2_image', val)}
-                  uploading={uploading.product2_image}
-                  onUpload={(file) => uploadImage('product2_image', file)}
-                />
-              </div>
-              <p className="text-[11px] text-gray-400">صور المنتجات اختيارية - إذا لم ترفع صورة سيتم عرض صورة المنتج الأصلية</p>
-            </div>
+            <ImageUploadField
+              label="صورة البانر الاحتياطية"
+              value={form.image}
+              onChange={(val) => set('image', val)}
+              uploading={uploading.image}
+              onUpload={(file) => uploadImage('image', file)}
+            />
+            <p className="text-[11px] text-gray-400 mt-1">تظهر إذا لم يكن للكومبو صورة خاصة</p>
           </div>
 
           <div className="flex items-center gap-2">

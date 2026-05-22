@@ -115,7 +115,7 @@ export default function LandingOffer() {
   const [loading, setLoading] = useState(true);
   const [pageError, setPageError] = useState('');
 
-  const [selectedColor, setSelectedColor] = useState('');
+  const [selectedComboIdx, setSelectedComboIdx] = useState(0);
   const [size1, setSize1] = useState('');
   const [size2, setSize2] = useState('');
 
@@ -197,13 +197,20 @@ export default function LandingOffer() {
       .then((res) => {
         if (!active) return;
         setData(res);
-        const v1 = res.product1?.variants?.find((v) => v.quantity > 0);
-        if (v1) {
-          setSelectedColor(v1.color || '');
-          setSize1(v1.size || '');
+        const combos = res.color_combos || [];
+        setSelectedComboIdx(0);
+        if (combos.length > 0) {
+          const c = combos[0];
+          const v1 = res.product1?.variants?.find((v) => normalizeText(v.color) === normalizeText(c.p1_color) && v.quantity > 0);
+          const v2 = res.product2?.variants?.find((v) => normalizeText(v.color) === normalizeText(c.p2_color) && v.quantity > 0);
+          if (v1) setSize1(v1.size || '');
+          if (v2) setSize2(v2.size || '');
+        } else {
+          const v1 = res.product1?.variants?.find((v) => v.quantity > 0);
+          const v2 = res.product2?.variants?.find((v) => v.quantity > 0);
+          if (v1) setSize1(v1.size || '');
+          if (v2) setSize2(v2.size || '');
         }
-        const v2 = res.product2?.variants?.find((v) => v.quantity > 0 && normalizeText(v.color) === normalizeText(v1?.color || ''));
-        if (v2) setSize2(v2.size || '');
       })
       .catch((err) => {
         if (!active) return;
@@ -286,32 +293,25 @@ export default function LandingOffer() {
     return () => { active = false; };
   }, [form.wilayaId, form.deliveryMethod, form.communeId]);
 
+  const combos = data?.color_combos || [];
+  const activeCombo = combos[selectedComboIdx] || null;
+
+  const p1Color = activeCombo ? activeCombo.p1_color : '';
+  const p2Color = activeCombo ? activeCombo.p2_color : '';
+
   const variant1 = useMemo(() => {
-    if (!data?.product1) return null;
+    if (!data?.product1 || !p1Color) return null;
     return data.product1.variants.find(
-      (v) => normalizeText(v.color) === normalizeText(selectedColor) && normalizeText(v.size) === normalizeText(size1)
+      (v) => normalizeText(v.color) === normalizeText(p1Color) && normalizeText(v.size) === normalizeText(size1)
     );
-  }, [data, selectedColor, size1]);
+  }, [data, p1Color, size1]);
 
   const variant2 = useMemo(() => {
-    if (!data?.product2) return null;
+    if (!data?.product2 || !p2Color) return null;
     return data.product2.variants.find(
-      (v) => normalizeText(v.color) === normalizeText(selectedColor) && normalizeText(v.size) === normalizeText(size2)
+      (v) => normalizeText(v.color) === normalizeText(p2Color) && normalizeText(v.size) === normalizeText(size2)
     );
-  }, [data, selectedColor, size2]);
-
-  // Available colors (intersection of both products)
-  const availableColors = useMemo(() => {
-    if (!data?.product1 || !data?.product2) return [];
-    const colors1 = new Set(data.product1.variants.map((v) => String(v.color || '').trim()));
-    const colors2 = new Set(data.product2.variants.map((v) => String(v.color || '').trim()));
-    const shared = [...colors1].filter((c) => c && colors2.has(c));
-    return shared.map((color) => {
-      const available = data.product1.variants.some((v) => v.color === color && v.quantity > 0)
-        && data.product2.variants.some((v) => v.color === color && v.quantity > 0);
-      return { color, available };
-    });
-  }, [data]);
+  }, [data, p2Color, size2]);
 
   const canOrder = variant1 && variant1.quantity > 0 && variant2 && variant2.quantity > 0;
 
@@ -469,10 +469,10 @@ export default function LandingOffer() {
         </div>
       </div>
 
-      {/* Banner image — color-specific or fallback */}
+      {/* Banner image — combo-specific or fallback */}
       {(() => {
-        const colorImg = data.color_images?.[selectedColor];
-        const displayImg = colorImg || data.image;
+        const comboImg = activeCombo?.image;
+        const displayImg = comboImg || data.image;
         if (!displayImg) return null;
         return (
           <div className="mb-8 mx-auto max-w-lg rounded-2xl overflow-hidden">
@@ -481,36 +481,38 @@ export default function LandingOffer() {
         );
       })()}
 
-      {/* Color + Product selectors */}
+      {/* Combo picker + size selectors */}
       <div className="max-w-lg mx-auto space-y-4">
-        {/* Shared color picker */}
-        {availableColors.length > 0 && (
+        {/* Combo picker */}
+        {combos.length > 0 && (
           <div className="rounded-2xl border border-black/10 bg-white/70 p-4">
-            <p className="text-[11px] uppercase tracking-[0.2em] text-black/40 mb-2">اللون</p>
+            <p className="text-[11px] uppercase tracking-[0.2em] text-black/40 mb-2">اختر اللون</p>
             <div className="flex flex-wrap gap-2">
-              {availableColors.map(({ color, available }) => (
-                <button
-                  key={color}
-                  type="button"
-                  disabled={!available}
-                  onClick={() => {
-                    setSelectedColor(color);
-                    const v1 = data.product1.variants.find((v) => normalizeText(v.color) === normalizeText(color) && v.quantity > 0);
-                    const v2 = data.product2.variants.find((v) => normalizeText(v.color) === normalizeText(color) && v.quantity > 0);
-                    if (v1) setSize1(v1.size || '');
-                    if (v2) setSize2(v2.size || '');
-                  }}
-                  className={`rounded-full border px-3 py-1.5 text-[11px] uppercase tracking-wider transition-all ${
-                    normalizeText(selectedColor) === normalizeText(color)
-                      ? 'border-black bg-black text-white'
-                      : available
-                      ? 'border-black/20 text-black/70 hover:border-black'
-                      : 'border-black/10 text-black/30'
-                  }`}
-                >
-                  {color}
-                </button>
-              ))}
+              {combos.map((combo, idx) => {
+                const label = combo.p1_color === combo.p2_color
+                  ? combo.p1_color
+                  : `${combo.p1_color} + ${combo.p2_color}`;
+                return (
+                  <button
+                    key={idx}
+                    type="button"
+                    onClick={() => {
+                      setSelectedComboIdx(idx);
+                      const v1 = data.product1.variants.find((v) => normalizeText(v.color) === normalizeText(combo.p1_color) && v.quantity > 0);
+                      const v2 = data.product2.variants.find((v) => normalizeText(v.color) === normalizeText(combo.p2_color) && v.quantity > 0);
+                      if (v1) setSize1(v1.size || '');
+                      if (v2) setSize2(v2.size || '');
+                    }}
+                    className={`rounded-full border px-3 py-1.5 text-[11px] uppercase tracking-wider transition-all ${
+                      selectedComboIdx === idx
+                        ? 'border-black bg-black text-white'
+                        : 'border-black/20 text-black/70 hover:border-black'
+                    }`}
+                  >
+                    {label}
+                  </button>
+                );
+              })}
             </div>
           </div>
         )}
@@ -518,22 +520,20 @@ export default function LandingOffer() {
         <ProductSizeSelector
           product={data.product1}
           label="المنتج الأول"
-          selectedColor={selectedColor}
+          selectedColor={p1Color}
           selectedSize={size1}
           onSizeChange={setSize1}
-          customImage={data.product1_image}
         />
         <ProductSizeSelector
           product={data.product2}
           label="المنتج الثاني"
-          selectedColor={selectedColor}
+          selectedColor={p2Color}
           selectedSize={size2}
           onSizeChange={setSize2}
-          customImage={data.product2_image}
         />
 
         {!canOrder && (
-          <p className="text-center text-[12px] text-red-500">يرجى اختيار اللون والمقاس المتوفر لكلا المنتجين</p>
+          <p className="text-center text-[12px] text-red-500">يرجى اختيار المقاس المتوفر لكلا المنتجين</p>
         )}
 
         <TrustStrip />
