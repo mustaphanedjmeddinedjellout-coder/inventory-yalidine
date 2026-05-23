@@ -48,6 +48,9 @@ export default function Orders() {
   // View order state
   const [viewOrder, setViewOrder] = useState(null);
   const [viewOpen, setViewOpen] = useState(false);
+  const [trackingHistory, setTrackingHistory] = useState([]);
+  const [trackingHistoryLoading, setTrackingHistoryLoading] = useState(false);
+  const [syncingStatusId, setSyncingStatusId] = useState(null);
   const [editOpen, setEditOpen] = useState(false);
   const [editSaving, setEditSaving] = useState(false);
   const [editOrderId, setEditOrderId] = useState(null);
@@ -163,10 +166,46 @@ export default function Orders() {
   async function openView(order) {
     try {
       const res = await orderApi.getById(order.id);
-      setViewOrder(res.data);
+      const fullOrder = res.data;
+      setViewOrder(fullOrder);
+      setTrackingHistory([]);
       setViewOpen(true);
+      if (fullOrder?.yalidine_tracking) {
+        await loadTrackingHistory(fullOrder);
+      }
     } catch (err) {
       toast.error(err.message);
+    }
+  }
+
+  async function loadTrackingHistory(order, options = {}) {
+    if (!order?.id || !order?.yalidine_tracking) {
+      setTrackingHistory([]);
+      return;
+    }
+
+    try {
+      setTrackingHistoryLoading(true);
+      const res = await orderApi.getTrackingHistory(order.id);
+      const payload = res.data || {};
+      const nextHistory = Array.isArray(payload.history) ? payload.history : [];
+      setTrackingHistory(nextHistory);
+
+      if (payload.order) {
+        setOrders((prev) => prev.map((o) => (o.id === order.id ? { ...o, ...payload.order } : o)));
+        setViewOrder((prev) => (prev?.id === order.id ? { ...prev, ...payload.order } : prev));
+      }
+
+      if (options.showToast) {
+        toast.success('تم تحديث سجل التتبع من يالدين');
+      }
+    } catch (err) {
+      setTrackingHistory([]);
+      if (options.showToast) {
+        toast.error(err.message);
+      }
+    } finally {
+      setTrackingHistoryLoading(false);
     }
   }
 
@@ -513,17 +552,21 @@ export default function Orders() {
 
   async function handleSyncStatus(id) {
     try {
+      setSyncingStatusId(id);
       const res = await orderApi.syncStatus(id);
       const updatedOrder = res.data;
 
       setOrders((prev) => prev.map((o) => (o.id === id ? { ...o, ...updatedOrder } : o)));
       if (viewOrder && viewOrder.id === id) {
         setViewOrder(updatedOrder);
+        await loadTrackingHistory(updatedOrder);
       }
 
       toast.success('تم تحديث حالة الشحن من يالدين');
     } catch (err) {
       toast.error(err.message);
+    } finally {
+      setSyncingStatusId(null);
     }
   }
 
@@ -590,6 +633,13 @@ export default function Orders() {
 
   const formatCurrency = (val) =>
     new Intl.NumberFormat('en-US', { style: 'decimal', minimumFractionDigits: 2 }).format(val || 0);
+
+  const formatDateTime = (value) => {
+    if (!value) return '—';
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return value;
+    return date.toLocaleString('en-US');
+  };
 
   const preview = getOrderPreview();
 
@@ -790,10 +840,11 @@ export default function Orders() {
                         {o.yalidine_tracking && (
                           <button
                             onClick={() => handleSyncStatus(o.id)}
+                            disabled={syncingStatusId === o.id}
                             className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition"
                             title="تحديث الحالة من يالدين"
                           >
-                            <RefreshCw size={16} />
+                            <RefreshCw size={16} className={syncingStatusId === o.id ? 'animate-spin' : ''} />
                           </button>
                         )}
                         <button
@@ -1387,19 +1438,70 @@ export default function Orders() {
 
             {/* Yalidine tracking */}
             {viewOrder.yalidine_tracking && (
-              <div className="bg-green-50 rounded-lg p-4 flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <Package size={18} className="text-green-600" />
-                  <div>
-                    <p className="text-sm font-bold text-green-800">Yalidine Tracking</p>
-                    <p className="text-xs text-green-600 font-mono">{viewOrder.yalidine_tracking}</p>
+              <div className="bg-green-50 rounded-lg p-4 space-y-4">
+                <div className="flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-2">
+                    <Package size={18} className="text-green-600" />
+                    <div>
+                      <p className="text-sm font-bold text-green-800">Yalidine Tracking</p>
+                      <p className="text-xs text-green-600 font-mono">{viewOrder.yalidine_tracking}</p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    {viewOrder.yalidine_status && (
+                      <span className="px-2 py-1 rounded-full bg-green-200 text-green-800 text-xs font-medium">
+                        {viewOrder.yalidine_status}
+                      </span>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => loadTrackingHistory(viewOrder, { showToast: true })}
+                      disabled={trackingHistoryLoading}
+                      className="inline-flex items-center gap-1 px-2 py-1 rounded-lg border border-green-200 bg-white text-green-700 text-xs font-medium hover:bg-green-100 disabled:opacity-60"
+                    >
+                      <RefreshCw size={13} className={trackingHistoryLoading ? 'animate-spin' : ''} />
+                      تحديث
+                    </button>
                   </div>
                 </div>
-                {viewOrder.yalidine_status && (
-                  <span className="px-2 py-1 rounded-full bg-green-200 text-green-800 text-xs font-medium">
-                    {viewOrder.yalidine_status}
-                  </span>
-                )}
+
+                <div className="rounded-lg bg-white border border-green-100 overflow-hidden">
+                  {trackingHistoryLoading ? (
+                    <div className="px-4 py-5 text-center text-xs text-gray-500">جاري تحميل سجل التتبع...</div>
+                  ) : trackingHistory.length > 0 ? (
+                    <div className="divide-y divide-green-50">
+                      {trackingHistory.map((entry, index) => {
+                        const location = [entry.center_name, entry.commune_name, entry.wilaya_name]
+                          .filter(Boolean)
+                          .join(' / ');
+
+                        return (
+                          <div key={`${entry.date_status || index}-${entry.status || index}`} className="p-3">
+                            <div className="flex items-start justify-between gap-3">
+                              <div>
+                                <p className="text-sm font-semibold text-gray-800">{entry.status || '—'}</p>
+                                {entry.reason && (
+                                  <p className="mt-0.5 text-xs text-red-600">{entry.reason}</p>
+                                )}
+                                {location && (
+                                  <p className="mt-1 text-xs text-gray-500">{location}</p>
+                                )}
+                              </div>
+                              <span className="shrink-0 text-[11px] text-gray-500 text-left">
+                                {formatDateTime(entry.date_status)}
+                              </span>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <div className="px-4 py-5 text-center text-xs text-gray-500">
+                      لا يوجد سجل تتبع متاح لهذا الطرد حالياً
+                    </div>
+                  )}
+                </div>
               </div>
             )}
 

@@ -36,6 +36,16 @@ router.get('/:id', async (req, res) => {
   }
 });
 
+// GET /api/orders/:id/tracking-history - Get Yalidine status timeline for an order
+router.get('/:id/tracking-history', async (req, res) => {
+  try {
+    const result = await orderService.getYalidineHistory(parseInt(req.params.id));
+    success(res, result);
+  } catch (err) {
+    error(res, err.message, 400);
+  }
+});
+
 // POST /api/orders - Create a new order
 router.post('/', async (req, res) => {
   try {

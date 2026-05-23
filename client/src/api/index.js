@@ -28,6 +28,7 @@ export const orderApi = {
   update: (id, data) => api.post(`/orders/${id}/update`, data),
   approve: (id) => api.post(`/orders/${id}/approve`),
   syncStatus: (id) => api.post(`/orders/${id}/sync-status`),
+  getTrackingHistory: (id) => api.get(`/orders/${id}/tracking-history`),
   syncOld: () => api.post('/orders/sync-old'),
   syncByPhone: (phone) => api.post('/orders/sync-by-phone', phone ? { phone } : {}),
   delete: (id) => api.delete(`/orders/${id}`),
@@ -46,6 +47,7 @@ export const yalidineApi = {
   getCommunes: (wilaya_id) => api.get('/yalidine/communes', { params: { wilaya_id } }),
   getCenters: (wilaya_id, commune_id) => api.get('/yalidine/centers', { params: { wilaya_id, commune_id } }),
   getTracking: (tracking) => api.get(`/yalidine/tracking/${tracking}`),
+  getHistories: (tracking) => api.get(`/yalidine/histories/${tracking}`),
   getStatus: () => api.get('/yalidine/status'),
 };
 

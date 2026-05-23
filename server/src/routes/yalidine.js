@@ -95,4 +95,19 @@ router.get('/status', (req, res) => {
   success(res, yalidineService.getConfigStatus());
 });
 
+// GET /api/yalidine/histories/:tracking - Get parcel status history
+router.get('/histories/:tracking', async (req, res) => {
+  try {
+    const data = await yalidineService.getHistories(req.params.tracking, {
+      fields: req.query.fields,
+      page: req.query.page,
+      page_size: req.query.page_size,
+      order_by: req.query.order_by,
+    });
+    success(res, data);
+  } catch (err) {
+    error(res, err.message);
+  }
+});
+
 module.exports = router;

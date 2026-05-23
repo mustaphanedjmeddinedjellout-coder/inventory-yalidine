@@ -162,6 +162,17 @@ const yalidineService = {
   },
 
   /**
+   * Get parcel status history by tracking number.
+   */
+  async getHistories(tracking, params = {}) {
+    const safeTracking = String(tracking || '').trim();
+    if (!safeTracking) throw new Error('tracking is required');
+
+    const query = toQueryString(params);
+    return request('GET', `/histories/${encodeURIComponent(safeTracking)}${query}`);
+  },
+
+  /**
    * List parcels by filters (used for account-wide sync flows).
    */
   async getParcels(params = {}) {

@@ -44,6 +44,40 @@ function extractYalidineStatus(payload) {
   return null;
 }
 
+function extractYalidineHistoryRows(payload) {
+  const rows = Array.isArray(payload)
+    ? payload
+    : Array.isArray(payload?.data)
+      ? payload.data
+      : [];
+
+  return rows
+    .filter((row) => row && typeof row === 'object')
+    .map((row) => ({
+      date_status: row.date_status || null,
+      tracking: row.tracking || null,
+      status: row.status || null,
+      reason: row.reason || '',
+      center_id: row.center_id ?? null,
+      center_name: row.center_name || null,
+      wilaya_id: row.wilaya_id ?? null,
+      wilaya_name: row.wilaya_name || null,
+      commune_id: row.commune_id ?? null,
+      commune_name: row.commune_name || null,
+    }))
+    .sort((a, b) => {
+      const bTime = new Date(b.date_status || '').getTime();
+      const aTime = new Date(a.date_status || '').getTime();
+      return (Number.isNaN(bTime) ? 0 : bTime) - (Number.isNaN(aTime) ? 0 : aTime);
+    });
+}
+
+function extractLatestHistoryStatus(payload) {
+  const rows = extractYalidineHistoryRows(payload);
+  const latest = rows.find((row) => typeof row.status === 'string' && row.status.trim());
+  return latest?.status?.trim() || null;
+}
+
 function normalizePhone(value) {
   return String(value || '').replace(/\D/g, '');
 }
@@ -170,8 +204,11 @@ const orderService = {
         if (!order.yalidine_tracking) return;
 
         try {
-          const trackingPayload = await yalidineService.getTracking(order.yalidine_tracking);
-          const latestStatus = extractYalidineStatus(trackingPayload);
+          const trackingPayload = await yalidineService.getHistories(order.yalidine_tracking, {
+            fields: 'date_status,tracking,status,reason,center_name,wilaya_name,commune_name',
+            page_size: 1,
+          });
+          const latestStatus = extractLatestHistoryStatus(trackingPayload) || extractYalidineStatus(trackingPayload);
           if (!latestStatus || latestStatus === order.yalidine_status) return;
 
           await db.execute({
@@ -199,6 +236,41 @@ const orderService = {
     const itemsResult = await db.execute({ sql: 'SELECT * FROM order_items WHERE order_id = ?', args: [id] });
     order.items = itemsResult.rows;
     return order;
+  },
+
+  /**
+   * Get the full Yalidine tracking history for an order and refresh the stored latest status.
+   */
+  async getYalidineHistory(id) {
+    const order = await this.getById(id);
+    if (!order) throw new Error('Ø§Ù„Ø·Ù„Ø¨ ØºÙŠØ± Ù…ÙˆØ¬ÙˆØ¯');
+    if (!order.yalidine_tracking) {
+      return { order, history: [] };
+    }
+    if (!yalidineService.isConfigured()) {
+      throw new Error('Yalidine ØºÙŠØ± Ù…ÙØ¹Ù‘Ù„. ÙŠØ±Ø¬Ù‰ Ø¶Ø¨Ø· Ù…ÙØ§ØªÙŠØ­ API.');
+    }
+
+    const payload = await yalidineService.getHistories(order.yalidine_tracking, {
+      fields: 'date_status,tracking,status,reason,center_name,wilaya_name,commune_name',
+      page_size: 100,
+      order_by: 'date_status',
+      desc: '',
+    });
+    const history = extractYalidineHistoryRows(payload);
+    const latestStatus = history[0]?.status?.trim() || null;
+
+    if (latestStatus && latestStatus !== order.yalidine_status) {
+      await db.execute({
+        sql: 'UPDATE orders SET yalidine_status = ? WHERE id = ?',
+        args: [latestStatus, id],
+      });
+    }
+
+    return {
+      order: latestStatus && latestStatus !== order.yalidine_status ? await this.getById(id) : order,
+      history,
+    };
   },
 
   /**
@@ -438,8 +510,11 @@ const orderService = {
       throw new Error('Yalidine غير مفعّل. يرجى ضبط مفاتيح API.');
     }
 
-    const trackingPayload = await yalidineService.getTracking(order.yalidine_tracking);
-    const latestStatus = extractYalidineStatus(trackingPayload);
+    const trackingPayload = await yalidineService.getHistories(order.yalidine_tracking, {
+      fields: 'date_status,tracking,status,reason,center_name,wilaya_name,commune_name',
+      page_size: 1,
+    });
+    const latestStatus = extractLatestHistoryStatus(trackingPayload) || extractYalidineStatus(trackingPayload);
 
     if (latestStatus && latestStatus !== order.yalidine_status) {
       await db.execute({
@@ -473,8 +548,11 @@ const orderService = {
 
     await Promise.all(result.rows.map(async (order) => {
       try {
-        const trackingPayload = await yalidineService.getTracking(order.yalidine_tracking);
-        const latestStatus = extractYalidineStatus(trackingPayload);
+        const trackingPayload = await yalidineService.getHistories(order.yalidine_tracking, {
+          fields: 'date_status,tracking,status,reason,center_name,wilaya_name,commune_name',
+          page_size: 1,
+        });
+        const latestStatus = extractLatestHistoryStatus(trackingPayload) || extractYalidineStatus(trackingPayload);
         synced += 1;
 
         if (latestStatus && latestStatus !== order.yalidine_status) {
