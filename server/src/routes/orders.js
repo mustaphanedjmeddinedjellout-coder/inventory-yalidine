@@ -17,7 +17,7 @@ router.get('/', async (req, res) => {
       from: req.query.from,
       to: req.query.to,
     };
-    const shouldSyncYalidine = req.query.sync !== '0';
+    const shouldSyncYalidine = req.query.sync === '1';
     const orders = await orderService.getAll(filters, { syncYalidine: shouldSyncYalidine });
     success(res, orders);
   } catch (err) {

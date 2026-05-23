@@ -174,6 +174,14 @@ function parcelTimestamp(parcel) {
   return 0;
 }
 
+function chunkRows(rows, size) {
+  const chunks = [];
+  for (let i = 0; i < rows.length; i += size) {
+    chunks.push(rows.slice(i, i + size));
+  }
+  return chunks;
+}
+
 const orderService = {
   /**
    * Get all orders with optional date filtering
@@ -200,8 +208,8 @@ const orderService = {
     const rows = result.rows;
 
     if (options.syncYalidine && yalidineService.isConfigured()) {
-      await Promise.all(rows.map(async (order) => {
-        if (!order.yalidine_tracking) return;
+      for (const order of rows) {
+        if (!order.yalidine_tracking) continue;
 
         try {
           const trackingPayload = await yalidineService.getHistories(order.yalidine_tracking, {
@@ -219,7 +227,7 @@ const orderService = {
         } catch (err) {
           console.warn(`Failed to sync Yalidine status for order ${order.id}:`, err.message);
         }
-      }));
+      }
     }
 
     return rows;
@@ -546,27 +554,53 @@ const orderService = {
     let updated = 0;
     let failed = 0;
 
-    await Promise.all(result.rows.map(async (order) => {
-      try {
-        const trackingPayload = await yalidineService.getHistories(order.yalidine_tracking, {
-          fields: 'date_status,tracking,status,reason,center_name,wilaya_name,commune_name',
-          page_size: 1,
-        });
-        const latestStatus = extractLatestHistoryStatus(trackingPayload) || extractYalidineStatus(trackingPayload);
-        synced += 1;
+    const chunks = chunkRows(result.rows, 25);
 
-        if (latestStatus && latestStatus !== order.yalidine_status) {
-          await db.execute({
-            sql: 'UPDATE orders SET yalidine_status = ? WHERE id = ?',
-            args: [latestStatus, order.id],
-          });
-          updated += 1;
+    for (const chunk of chunks) {
+      try {
+        const trackingValues = chunk
+          .map((order) => String(order.yalidine_tracking || '').trim())
+          .filter(Boolean);
+
+        if (trackingValues.length === 0) continue;
+
+        const trackingPayload = await yalidineService.listHistories({
+          tracking: trackingValues.join(','),
+          fields: 'date_status,tracking,status,reason,center_name,wilaya_name,commune_name',
+          page_size: Math.min(500, trackingValues.length * 20),
+          order_by: 'date_status',
+          desc: '',
+        });
+        const historyRows = extractYalidineHistoryRows(trackingPayload);
+        const latestByTracking = new Map();
+
+        for (const row of historyRows) {
+          const tracking = String(row.tracking || '').trim();
+          if (!tracking || latestByTracking.has(tracking)) continue;
+          if (row.status) latestByTracking.set(tracking, row.status);
+        }
+
+        for (const order of chunk) {
+          const latestStatus = latestByTracking.get(String(order.yalidine_tracking || '').trim());
+          if (!latestStatus) {
+            failed += 1;
+            continue;
+          }
+
+          synced += 1;
+          if (latestStatus !== order.yalidine_status) {
+            await db.execute({
+              sql: 'UPDATE orders SET yalidine_status = ? WHERE id = ?',
+              args: [latestStatus, order.id],
+            });
+            updated += 1;
+          }
         }
       } catch (err) {
-        failed += 1;
-        console.warn(`Failed to sync old order ${order.id}:`, err.message);
+        failed += chunk.length;
+        console.warn(`Failed to sync old orders chunk:`, err.message);
       }
-    }));
+    }
 
     return {
       totalTracked: result.rows.length,

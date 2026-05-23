@@ -5,6 +5,59 @@
  */
 
 const BASE_URL = 'https://api.yalidine.app/v1';
+const MIN_REQUEST_INTERVAL_MS = Number(process.env.YALIDINE_MIN_INTERVAL_MS || 1300);
+
+let yalidineQueue = Promise.resolve();
+let nextRequestAt = 0;
+let pauseUntil = 0;
+
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function waitForQuotaWindow() {
+  const now = Date.now();
+  const waitMs = Math.max(nextRequestAt, pauseUntil) - now;
+  if (waitMs > 0) {
+    await sleep(waitMs);
+  }
+  nextRequestAt = Date.now() + MIN_REQUEST_INTERVAL_MS;
+}
+
+function parseQuotaHeader(headersObj, name) {
+  const raw = headersObj.get(name);
+  if (raw == null || raw === '') return null;
+  const value = Number(raw);
+  return Number.isFinite(value) ? value : null;
+}
+
+function updateQuotaPause(headersObj) {
+  const now = Date.now();
+  const secondLeft = parseQuotaHeader(headersObj, 'x-second-quota-left');
+  const minuteLeft = parseQuotaHeader(headersObj, 'x-minute-quota-left');
+  const hourLeft = parseQuotaHeader(headersObj, 'x-hour-quota-left');
+  const dayLeft = parseQuotaHeader(headersObj, 'x-day-quota-left');
+
+  if (dayLeft === 0) {
+    throw new Error('Yalidine daily quota is exhausted. Try again after the daily quota resets.');
+  }
+  if (hourLeft === 0) {
+    throw new Error('Yalidine hourly quota is exhausted. Try again after the hourly quota resets.');
+  }
+  if (minuteLeft === 0) {
+    pauseUntil = Math.max(pauseUntil, now + 61000);
+    return;
+  }
+  if (secondLeft === 0) {
+    pauseUntil = Math.max(pauseUntil, now + 1100);
+  }
+}
+
+function enqueueYalidineRequest(task) {
+  const run = yalidineQueue.then(task, task);
+  yalidineQueue = run.catch(() => {});
+  return run;
+}
 
 function toQueryString(params = {}) {
   const search = new URLSearchParams();
@@ -53,12 +106,13 @@ function headers() {
   };
 }
 
-async function request(method, path, body) {
+async function performRequest(method, path, body) {
   ensureConfigured();
   const url = `${BASE_URL}${path}`;
   const opts = { method, headers: headers() };
   if (body) opts.body = JSON.stringify(body);
 
+  await waitForQuotaWindow();
   const res = await fetch(url, opts);
   const text = await res.text();
 
@@ -69,11 +123,36 @@ async function request(method, path, body) {
     data = text;
   }
 
+  updateQuotaPause(res.headers);
+
+  if (res.status === 429) {
+    const retryAfterSeconds = Number(res.headers.get('retry-after') || 60);
+    const retryAfterMs = Number.isFinite(retryAfterSeconds)
+      ? Math.max(1000, retryAfterSeconds * 1000)
+      : 60000;
+    pauseUntil = Math.max(pauseUntil, Date.now() + retryAfterMs);
+    throw new Error(`Yalidine rate limit reached. Retry after ${Math.ceil(retryAfterMs / 1000)} seconds.`);
+  }
+
   if (!res.ok) {
     const msg = typeof data === 'object' ? JSON.stringify(data) : data;
     throw new Error(`Yalidine API error ${res.status}: ${msg}`);
   }
   return data;
+}
+
+async function request(method, path, body) {
+  return enqueueYalidineRequest(async () => {
+    try {
+      return await performRequest(method, path, body);
+    } catch (err) {
+      if (!String(err.message || '').includes('rate limit reached')) {
+        throw err;
+      }
+      await waitForQuotaWindow();
+      return performRequest(method, path, body);
+    }
+  });
 }
 
 const yalidineService = {
@@ -170,6 +249,14 @@ const yalidineService = {
 
     const query = toQueryString(params);
     return request('GET', `/histories/${encodeURIComponent(safeTracking)}${query}`);
+  },
+
+  /**
+   * List status histories by filters, including comma-separated tracking values.
+   */
+  async listHistories(params = {}) {
+    const query = toQueryString(params);
+    return request('GET', `/histories/${query}`);
   },
 
   /**

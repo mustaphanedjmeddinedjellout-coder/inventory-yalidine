@@ -79,7 +79,6 @@ export default function Orders() {
       setLoading(true);
       const params = {};
       if (dateFilter) params.date = dateFilter;
-      params.sync = 1;
       const res = await orderApi.getAll(params);
       setOrders(res.data);
     } catch (err) {
