@@ -19,6 +19,7 @@ export default function Orders() {
   const [searchQuery, setSearchQuery] = useState('');
   const [syncingOldOrders, setSyncingOldOrders] = useState(false);
   const [syncingByPhone, setSyncingByPhone] = useState(false);
+  const [autoSyncing, setAutoSyncing] = useState(false);
 
   // New order state
   const [createOpen, setCreateOpen] = useState(false);
@@ -69,9 +70,32 @@ export default function Orders() {
   const [editItems, setEditItems] = useState([]);
   const variantRefs = useRef({});
   const quantityRefs = useRef({});
+  const autoRefreshRef = useRef(false);
 
   useEffect(() => {
-    loadOrders();
+    let cancelled = false;
+
+    // Render the list fast (no sync), then silently refresh delivery statuses.
+    (async () => {
+      await loadOrders();
+      if (!cancelled) refreshStatuses();
+    })();
+
+    // Keep statuses fresh while the page stays open, but only when visible.
+    const interval = setInterval(() => {
+      if (typeof document !== 'undefined' && document.visibilityState !== 'visible') return;
+      refreshStatuses();
+    }, 3 * 60 * 1000);
+
+    const onFocus = () => refreshStatuses();
+    window.addEventListener('focus', onFocus);
+
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+      window.removeEventListener('focus', onFocus);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dateFilter]);
 
   async function loadOrders() {
@@ -85,6 +109,26 @@ export default function Orders() {
       toast.error(err.message);
     } finally {
       setLoading(false);
+    }
+  }
+
+  // Ask the server to sync the current list against Yalidine (sync=1) and swap
+  // in the fresh rows. Runs silently in the background; failures are ignored so
+  // the manual refresh buttons stay as a fallback.
+  async function refreshStatuses() {
+    if (autoRefreshRef.current) return; // avoid overlapping syncs
+    autoRefreshRef.current = true;
+    setAutoSyncing(true);
+    try {
+      const params = { sync: 1 };
+      if (dateFilter) params.date = dateFilter;
+      const res = await orderApi.getAll(params);
+      if (Array.isArray(res.data)) setOrders(res.data);
+    } catch {
+      // Non-blocking: leave the already-rendered list in place.
+    } finally {
+      autoRefreshRef.current = false;
+      setAutoSyncing(false);
     }
   }
 
@@ -677,6 +721,11 @@ export default function Orders() {
         <div>
           <h1 className="text-2xl font-bold text-gray-800">الطلبات</h1>
           <p className="text-gray-500 text-sm mt-1">إدارة طلبات البيع اليومية</p>
+          {autoSyncing && (
+            <p className="text-xs text-blue-500 mt-1 flex items-center gap-1">
+              <RefreshCw size={12} className="animate-spin" /> تحديث حالات الشحن تلقائياً...
+            </p>
+          )}
         </div>
         <div className="flex items-center gap-2">
           <button

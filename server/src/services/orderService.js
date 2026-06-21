@@ -78,6 +78,26 @@ function extractLatestHistoryStatus(payload) {
   return latest?.status?.trim() || null;
 }
 
+// Statuses that are terminal: the parcel is done and won't change again, so we
+// stop polling Yalidine for them to save API quota.
+const FINAL_STATUSES_NORMALIZED = new Set([
+  'livre', // Livré
+  'retourne au vendeur', // Retourné au vendeur
+]);
+
+function normalizeStatusText(value) {
+  return String(value || '')
+    .trim()
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '');
+}
+
+function isFinalYalidineStatus(status) {
+  const normalized = normalizeStatusText(status);
+  return normalized !== '' && FINAL_STATUSES_NORMALIZED.has(normalized);
+}
+
 function normalizePhone(value) {
   return String(value || '').replace(/\D/g, '');
 }
@@ -208,24 +228,51 @@ const orderService = {
     const rows = result.rows;
 
     if (options.syncYalidine && yalidineService.isConfigured()) {
-      for (const order of rows) {
-        if (!order.yalidine_tracking) continue;
+      // Only refresh orders that have a tracking number and are not yet in a
+      // terminal state. Batch the tracking numbers (25 per call) so a large
+      // list still fits inside the Yalidine per-minute quota.
+      const active = rows.filter(
+        (order) =>
+          order.yalidine_tracking &&
+          String(order.yalidine_tracking).trim() &&
+          !isFinalYalidineStatus(order.yalidine_status)
+      );
 
+      for (const chunk of chunkRows(active, 25)) {
         try {
-          const trackingPayload = await yalidineService.getHistories(order.yalidine_tracking, {
-            fields: 'date_status,tracking,status,reason,center_name,wilaya_name,commune_name',
-            page_size: 1,
-          });
-          const latestStatus = extractLatestHistoryStatus(trackingPayload) || extractYalidineStatus(trackingPayload);
-          if (!latestStatus || latestStatus === order.yalidine_status) return;
+          const trackingValues = chunk
+            .map((order) => String(order.yalidine_tracking || '').trim())
+            .filter(Boolean);
+          if (trackingValues.length === 0) continue;
 
-          await db.execute({
-            sql: 'UPDATE orders SET yalidine_status = ? WHERE id = ?',
-            args: [latestStatus, order.id],
+          const trackingPayload = await yalidineService.listHistories({
+            tracking: trackingValues.join(','),
+            fields: 'date_status,tracking,status,reason,center_name,wilaya_name,commune_name',
+            page_size: Math.min(500, trackingValues.length * 20),
+            order_by: 'date_status',
+            desc: '',
           });
-          order.yalidine_status = latestStatus;
+
+          const historyRows = extractYalidineHistoryRows(trackingPayload);
+          const latestByTracking = new Map();
+          for (const row of historyRows) {
+            const tracking = String(row.tracking || '').trim();
+            if (!tracking || latestByTracking.has(tracking)) continue;
+            if (row.status) latestByTracking.set(tracking, row.status);
+          }
+
+          for (const order of chunk) {
+            const latestStatus = latestByTracking.get(String(order.yalidine_tracking || '').trim());
+            if (!latestStatus || latestStatus === order.yalidine_status) continue;
+
+            await db.execute({
+              sql: 'UPDATE orders SET yalidine_status = ? WHERE id = ?',
+              args: [latestStatus, order.id],
+            });
+            order.yalidine_status = latestStatus;
+          }
         } catch (err) {
-          console.warn(`Failed to sync Yalidine status for order ${order.id}:`, err.message);
+          console.warn('Failed to sync Yalidine statuses on list:', err.message);
         }
       }
     }
