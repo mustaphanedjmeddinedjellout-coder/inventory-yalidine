@@ -175,7 +175,9 @@ export default function LandingOffer() {
     if (!data || typeof window === 'undefined' || !window.fbq) return;
     window.fbq('track', 'ViewContent', {
       content_type: 'product',
-      content_ids: [String(data.product1.id), String(data.product2.id)],
+      content_ids: data.product2
+        ? [String(data.product1.id), String(data.product2.id)]
+        : [String(data.product1.id)],
       content_name: data.title,
       currency: 'DZD',
       value: Number(data.offer_price || 0),
@@ -243,6 +245,9 @@ export default function LandingOffer() {
   const combos = data?.color_combos || [];
   const activeCombo = combos[selectedComboIdx] || null;
 
+  // Single-product offer: the API returns product2 as null.
+  const isSingle = Boolean(data) && !data.product2;
+
   const p1Color = activeCombo ? activeCombo.p1_color : '';
   const p2Color = activeCombo ? activeCombo.p2_color : '';
 
@@ -260,18 +265,24 @@ export default function LandingOffer() {
     );
   }, [data, p2Color, selectedSize]);
 
-  // Shared sizes — only show sizes available in BOTH products for the selected combo colors
+  // Sizes for the selected color. For a bundle, only sizes available in BOTH
+  // products; for a single product, just that product's sizes.
   const sharedSizes = useMemo(() => {
-    if (!data?.product1 || !data?.product2) return [];
+    if (!data?.product1) return [];
     const p1Variants = data.product1.variants || [];
-    const p2Variants = data.product2.variants || [];
     const p1Sizes = new Set(p1Variants.filter((v) => normalizeText(v.color) === normalizeText(p1Color)).map((v) => String(v.size || '').trim()));
+    if (!data?.product2) {
+      return sortSizes([...p1Sizes].filter(Boolean));
+    }
+    const p2Variants = data.product2.variants || [];
     const p2Sizes = new Set(p2Variants.filter((v) => normalizeText(v.color) === normalizeText(p2Color)).map((v) => String(v.size || '').trim()));
     const shared = [...p1Sizes].filter((s) => s && p2Sizes.has(s));
     return sortSizes(shared);
   }, [data, p1Color, p2Color]);
 
-  const canOrder = variant1 && variant1.quantity > 0 && variant2 && variant2.quantity > 0;
+  const canOrder = isSingle
+    ? Boolean(variant1 && variant1.quantity > 0)
+    : Boolean(variant1 && variant1.quantity > 0 && variant2 && variant2.quantity > 0);
 
   const total = useMemo(() => {
     if (!data) return 0;
@@ -324,8 +335,35 @@ export default function LandingOffer() {
     try {
       const p1 = data.product1;
       const p2 = data.product2;
-      const pricePerItem1 = Math.round(data.offer_price * (p1.selling_price / (p1.selling_price + p2.selling_price)));
-      const pricePerItem2 = data.offer_price - pricePerItem1;
+
+      let items;
+      if (isSingle) {
+        items = [
+          {
+            product_id: Number(p1.id),
+            variant_id: Number(variant1.id),
+            quantity: 1,
+            selling_price: data.offer_price,
+          },
+        ];
+      } else {
+        const pricePerItem1 = Math.round(data.offer_price * (p1.selling_price / (p1.selling_price + p2.selling_price)));
+        const pricePerItem2 = data.offer_price - pricePerItem1;
+        items = [
+          {
+            product_id: Number(p1.id),
+            variant_id: Number(variant1.id),
+            quantity: 1,
+            selling_price: pricePerItem1,
+          },
+          {
+            product_id: Number(p2.id),
+            variant_id: Number(variant2.id),
+            quantity: 1,
+            selling_price: pricePerItem2,
+          },
+        ];
+      }
 
       const eventId = createEventId();
       const eventSourceUrl = typeof window !== 'undefined' ? window.location.href : '';
@@ -350,20 +388,7 @@ export default function LandingOffer() {
           notes: form.notes,
         },
         bundleDiscount: 0,
-        items: [
-          {
-            product_id: Number(p1.id),
-            variant_id: Number(variant1.id),
-            quantity: 1,
-            selling_price: pricePerItem1,
-          },
-          {
-            product_id: Number(p2.id),
-            variant_id: Number(variant2.id),
-            quantity: 1,
-            selling_price: pricePerItem2,
-          },
-        ],
+        items,
       };
 
       const result = await submitCheckout(payload);
@@ -377,8 +402,8 @@ export default function LandingOffer() {
             currency: 'DZD',
             value: Number(total.toFixed(2)),
             content_type: 'product',
-            content_ids: [String(p1.id), String(p2.id)],
-            num_items: 2,
+            content_ids: isSingle ? [String(p1.id)] : [String(p1.id), String(p2.id)],
+            num_items: isSingle ? 1 : 2,
           },
           { eventID: eventId }
         );
@@ -447,7 +472,7 @@ export default function LandingOffer() {
             <p className="text-[11px] uppercase tracking-[0.2em] text-black/40 mb-2">اختر اللون</p>
             <div className="flex flex-wrap gap-2">
               {combos.map((combo, idx) => {
-                const label = combo.p1_color === combo.p2_color
+                const label = isSingle || combo.p1_color === combo.p2_color
                   ? combo.p1_color
                   : `${combo.p1_color} + ${combo.p2_color}`;
                 return (
@@ -456,12 +481,16 @@ export default function LandingOffer() {
                     type="button"
                     onClick={() => {
                       setSelectedComboIdx(idx);
-                      // Find first size available in both products for this combo
+                      // Find first available size for this combo (shared across both products for a bundle).
                       const p1v = data.product1.variants.filter((v) => normalizeText(v.color) === normalizeText(combo.p1_color) && v.quantity > 0);
-                      const p2v = data.product2.variants.filter((v) => normalizeText(v.color) === normalizeText(combo.p2_color) && v.quantity > 0);
-                      const p2Sizes = new Set(p2v.map((v) => normalizeText(v.size)));
-                      const firstShared = p1v.find((v) => p2Sizes.has(normalizeText(v.size)));
-                      setSelectedSize(firstShared?.size || p1v[0]?.size || '');
+                      if (isSingle) {
+                        setSelectedSize(p1v[0]?.size || '');
+                      } else {
+                        const p2v = data.product2.variants.filter((v) => normalizeText(v.color) === normalizeText(combo.p2_color) && v.quantity > 0);
+                        const p2Sizes = new Set(p2v.map((v) => normalizeText(v.size)));
+                        const firstShared = p1v.find((v) => p2Sizes.has(normalizeText(v.size)));
+                        setSelectedSize(firstShared?.size || p1v[0]?.size || '');
+                      }
                     }}
                     className={`rounded-full border px-3 py-1.5 text-[11px] uppercase tracking-wider transition-all ${
                       selectedComboIdx === idx
@@ -486,7 +515,7 @@ export default function LandingOffer() {
                 const p1Ok = (data.product1.variants || []).some(
                   (v) => normalizeText(v.color) === normalizeText(p1Color) && normalizeText(v.size) === normalizeText(size) && v.quantity > 0
                 );
-                const p2Ok = (data.product2.variants || []).some(
+                const p2Ok = isSingle || (data.product2.variants || []).some(
                   (v) => normalizeText(v.color) === normalizeText(p2Color) && normalizeText(v.size) === normalizeText(size) && v.quantity > 0
                 );
                 const isAvailable = p1Ok && p2Ok;

@@ -144,6 +144,7 @@ async function initializeDatabase() {
       product2_variants TEXT,
       color_images TEXT,
       color_combos TEXT,
+      single_product INTEGER NOT NULL DEFAULT 0,
       active INTEGER NOT NULL DEFAULT 1,
       created_at TEXT DEFAULT (datetime('now')),
       updated_at TEXT DEFAULT (datetime('now')),
@@ -216,6 +217,9 @@ async function setupDatabase() {
       }
       if (!lpCols.includes('color_combos')) {
         await db.execute('ALTER TABLE landing_pages ADD COLUMN color_combos TEXT');
+      }
+      if (!lpCols.includes('single_product')) {
+        await db.execute('ALTER TABLE landing_pages ADD COLUMN single_product INTEGER NOT NULL DEFAULT 0');
       }
     }
   } catch { /* table may not exist yet, that's fine */ }

@@ -10,6 +10,7 @@ const emptyForm = {
   slug: '',
   title: '',
   subtitle: '',
+  single_product: false,
   product1_id: '',
   product2_id: '',
   offer_price: '',
@@ -186,12 +187,14 @@ export default function LandingPages() {
     const combos = page.color_combos
       ? (typeof page.color_combos === 'string' ? JSON.parse(page.color_combos) : page.color_combos)
       : [];
+    const isSingle = Boolean(page.single_product);
     setForm({
       slug: page.slug,
       title: page.title,
       subtitle: page.subtitle || '',
+      single_product: isSingle,
       product1_id: String(page.product1_id),
-      product2_id: String(page.product2_id),
+      product2_id: isSingle ? '' : String(page.product2_id),
       offer_price: String(page.offer_price),
       original_price: page.original_price ? String(page.original_price) : '',
       image: page.image || '',
@@ -202,20 +205,24 @@ export default function LandingPages() {
   }
 
   async function handleSave() {
-    if (!form.slug || !form.title || !form.product1_id || !form.product2_id || !form.offer_price) {
+    const missingProduct2 = !form.single_product && !form.product2_id;
+    if (!form.slug || !form.title || !form.product1_id || missingProduct2 || !form.offer_price) {
       toast.error('يرجى ملء جميع الحقول المطلوبة');
       return;
     }
 
     setSaving(true);
     try {
-      const validCombos = form.color_combos.filter((c) => c.p1_color && c.p2_color);
+      const validCombos = form.color_combos.filter((c) =>
+        form.single_product ? c.p1_color : (c.p1_color && c.p2_color)
+      );
       const payload = {
         slug: form.slug.trim().toLowerCase().replace(/\s+/g, '-'),
         title: form.title,
         subtitle: form.subtitle || null,
+        single_product: form.single_product,
         product1_id: Number(form.product1_id),
-        product2_id: Number(form.product2_id),
+        product2_id: form.single_product ? null : Number(form.product2_id),
         offer_price: Number(form.offer_price),
         original_price: form.original_price ? Number(form.original_price) : null,
         image: form.image || null,
@@ -297,7 +304,10 @@ export default function LandingPages() {
                     </span>
                   </div>
                   <p className="text-sm text-gray-500">
-                    {getProductName(page.product1_id)} + {getProductName(page.product2_id)} — <strong>{page.offer_price} DZD</strong>
+                    {page.single_product
+                      ? getProductName(page.product1_id)
+                      : `${getProductName(page.product1_id)} + ${getProductName(page.product2_id)}`}
+                    {' — '}<strong>{page.offer_price} DZD</strong>
                   </p>
                   <p className="text-xs text-gray-400">/offer/{page.slug}</p>
                 </div>
@@ -351,9 +361,29 @@ export default function LandingPages() {
               placeholder="اشتري 2 بسعر واحد"
             />
           </div>
-          <div className="grid grid-cols-2 gap-3">
+          <label className="flex items-center gap-2 rounded-lg bg-gray-50 border border-gray-200 px-3 py-2 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={form.single_product}
+              onChange={(e) => {
+                const checked = e.target.checked;
+                setForm((prev) => ({
+                  ...prev,
+                  single_product: checked,
+                  product2_id: checked ? '' : prev.product2_id,
+                  // Drop the second color from any existing combos when switching to single.
+                  color_combos: checked
+                    ? prev.color_combos.map((c) => ({ p1_color: c.p1_color, image: c.image }))
+                    : prev.color_combos,
+                }));
+              }}
+              className="rounded"
+            />
+            <span className="text-sm font-medium text-gray-700">عرض بمنتج واحد (بدون منتج ثانٍ)</span>
+          </label>
+          <div className={form.single_product ? '' : 'grid grid-cols-2 gap-3'}>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">المنتج الأول *</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">{form.single_product ? 'المنتج *' : 'المنتج الأول *'}</label>
               <select
                 className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm"
                 value={form.product1_id}
@@ -365,19 +395,21 @@ export default function LandingPages() {
                 ))}
               </select>
             </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">المنتج الثاني *</label>
-              <select
-                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm"
-                value={form.product2_id}
-                onChange={(e) => set('product2_id', e.target.value)}
-              >
-                <option value="">اختر المنتج</option>
-                {products.map((p) => (
-                  <option key={p.id} value={p.id}>{p.model_name} ({p.category})</option>
-                ))}
-              </select>
-            </div>
+            {!form.single_product && (
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">المنتج الثاني *</label>
+                <select
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm"
+                  value={form.product2_id}
+                  onChange={(e) => set('product2_id', e.target.value)}
+                >
+                  <option value="">اختر المنتج</option>
+                  {products.map((p) => (
+                    <option key={p.id} value={p.id}>{p.model_name} ({p.category})</option>
+                  ))}
+                </select>
+              </div>
+            )}
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
@@ -403,15 +435,19 @@ export default function LandingPages() {
           </div>
 
           {/* Color Combos */}
-          {form.product1_id && form.product2_id && (
+          {form.product1_id && (form.single_product || form.product2_id) && (
             <div className="border-t border-gray-100 pt-4 space-y-3">
               <div className="flex items-center justify-between">
-                <p className="text-sm font-semibold text-gray-700">كومبوهات الألوان</p>
+                <p className="text-sm font-semibold text-gray-700">{form.single_product ? 'ألوان المنتج' : 'كومبوهات الألوان'}</p>
                 <button type="button" onClick={addCombo} className="flex items-center gap-1 text-xs text-blue-600 hover:text-blue-700 font-medium">
-                  <Plus size={14} /> إضافة كومبو
+                  <Plus size={14} /> {form.single_product ? 'إضافة لون' : 'إضافة كومبو'}
                 </button>
               </div>
-              <p className="text-[11px] text-gray-400">كل كومبو = لون من المنتج الأول + لون من المنتج الثاني + صورة. العميل يختار كومبو واحد ثم يحدد المقاسات.</p>
+              <p className="text-[11px] text-gray-400">
+                {form.single_product
+                  ? 'كل عنصر = لون من المنتج + صورة. العميل يختار لوناً ثم يحدد المقاس.'
+                  : 'كل كومبو = لون من المنتج الأول + لون من المنتج الثاني + صورة. العميل يختار كومبو واحد ثم يحدد المقاسات.'}
+              </p>
 
               {form.color_combos.length === 0 && (
                 <p className="text-[12px] text-gray-400 text-center py-3 bg-gray-50 rounded-lg">لا توجد كومبوهات — سيظهر كل الألوان للعميل</p>
@@ -425,9 +461,9 @@ export default function LandingPages() {
                       <Trash2 size={14} />
                     </button>
                   </div>
-                  <div className="grid grid-cols-2 gap-2">
+                  <div className={form.single_product ? '' : 'grid grid-cols-2 gap-2'}>
                     <div>
-                      <label className="text-[11px] text-gray-500 mb-1 block">لون المنتج الأول ({product1Data?.model_name || ''})</label>
+                      <label className="text-[11px] text-gray-500 mb-1 block">{form.single_product ? `اللون (${product1Data?.model_name || ''})` : `لون المنتج الأول (${product1Data?.model_name || ''})`}</label>
                       <select
                         className="w-full border border-gray-200 rounded-lg px-2 py-1.5 text-sm"
                         value={combo.p1_color}
@@ -439,19 +475,21 @@ export default function LandingPages() {
                         ))}
                       </select>
                     </div>
-                    <div>
-                      <label className="text-[11px] text-gray-500 mb-1 block">لون المنتج الثاني ({product2Data?.model_name || ''})</label>
-                      <select
-                        className="w-full border border-gray-200 rounded-lg px-2 py-1.5 text-sm"
-                        value={combo.p2_color}
-                        onChange={(e) => updateCombo(idx, 'p2_color', e.target.value)}
-                      >
-                        <option value="">اختر اللون</option>
-                        {getUniqueColors(product2Data).map((c) => (
-                          <option key={c} value={c}>{c}</option>
-                        ))}
-                      </select>
-                    </div>
+                    {!form.single_product && (
+                      <div>
+                        <label className="text-[11px] text-gray-500 mb-1 block">لون المنتج الثاني ({product2Data?.model_name || ''})</label>
+                        <select
+                          className="w-full border border-gray-200 rounded-lg px-2 py-1.5 text-sm"
+                          value={combo.p2_color}
+                          onChange={(e) => updateCombo(idx, 'p2_color', e.target.value)}
+                        >
+                          <option value="">اختر اللون</option>
+                          {getUniqueColors(product2Data).map((c) => (
+                            <option key={c} value={c}>{c}</option>
+                          ))}
+                        </select>
+                      </div>
+                    )}
                   </div>
                   <ImageUploadField
                     label="صورة الكومبو"

@@ -66,10 +66,11 @@ router.get('/:slug', async (req, res) => {
     }
 
     const page = result.rows[0];
+    const isSingle = Number(page.single_product) === 1;
     const product1 = await fetchProductWithVariants(page.product1_id);
-    const product2 = await fetchProductWithVariants(page.product2_id);
+    const product2 = isSingle ? null : await fetchProductWithVariants(page.product2_id);
 
-    if (!product1 || !product2) {
+    if (!product1 || (!isSingle && !product2)) {
       return error(res, 'Products not found', 404);
     }
 
@@ -78,9 +79,11 @@ router.get('/:slug', async (req, res) => {
     // Filter each product's variants to only colors used in combos
     if (colorCombos.length > 0) {
       const p1Colors = new Set(colorCombos.map(c => c.p1_color));
-      const p2Colors = new Set(colorCombos.map(c => c.p2_color));
       product1.variants = product1.variants.filter(v => p1Colors.has(String(v.color || '').trim()));
-      product2.variants = product2.variants.filter(v => p2Colors.has(String(v.color || '').trim()));
+      if (!isSingle && product2) {
+        const p2Colors = new Set(colorCombos.map(c => c.p2_color));
+        product2.variants = product2.variants.filter(v => p2Colors.has(String(v.color || '').trim()));
+      }
     }
 
     success(res, {
@@ -92,6 +95,7 @@ router.get('/:slug', async (req, res) => {
       original_price: page.original_price,
       image: page.image,
       color_combos: colorCombos,
+      single_product: isSingle,
       active: page.active,
       product1,
       product2,
@@ -104,25 +108,36 @@ router.get('/:slug', async (req, res) => {
 // POST /api/landing-pages - create
 router.post('/', async (req, res) => {
   try {
-    const { slug, title, subtitle, product1_id, product2_id, offer_price, original_price, image, color_combos, active } = req.body;
+    const { slug, title, subtitle, product1_id, product2_id, offer_price, original_price, image, color_combos, active, single_product } = req.body;
 
-    if (!slug || !title || !product1_id || !product2_id || offer_price == null) {
-      return error(res, 'Missing required fields: slug, title, product1_id, product2_id, offer_price', 400);
+    // A single-product offer has no second product. Keep product2_id satisfied
+    // (it's NOT NULL) by pointing it at product1; the single_product flag is the
+    // source of truth and tells every layer to ignore product2.
+    const isSingle = single_product ? 1 : (product2_id == null || product2_id === '' ? 1 : 0);
+
+    if (!slug || !title || !product1_id || offer_price == null) {
+      return error(res, 'Missing required fields: slug, title, product1_id, offer_price', 400);
+    }
+    if (!isSingle && !product2_id) {
+      return error(res, 'Missing required field: product2_id', 400);
     }
 
+    const resolvedProduct2Id = isSingle ? Number(product1_id) : Number(product2_id);
+
     const result = await db.execute({
-      sql: `INSERT INTO landing_pages (slug, title, subtitle, product1_id, product2_id, offer_price, original_price, image, color_combos, active)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      sql: `INSERT INTO landing_pages (slug, title, subtitle, product1_id, product2_id, offer_price, original_price, image, color_combos, single_product, active)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       args: [
         slug,
         title,
         subtitle || null,
         Number(product1_id),
-        Number(product2_id),
+        resolvedProduct2Id,
         Number(offer_price),
         original_price != null ? Number(original_price) : null,
         image || null,
         color_combos ? JSON.stringify(color_combos) : null,
+        isSingle,
         active != null ? (active ? 1 : 0) : 1,
       ],
     });
@@ -140,26 +155,34 @@ router.post('/', async (req, res) => {
 router.put('/:id', async (req, res) => {
   try {
     const id = Number(req.params.id);
-    const { slug, title, subtitle, product1_id, product2_id, offer_price, original_price, image, color_combos, active } = req.body;
+    const { slug, title, subtitle, product1_id, product2_id, offer_price, original_price, image, color_combos, active, single_product } = req.body;
 
-    if (!slug || !title || !product1_id || !product2_id || offer_price == null) {
+    const isSingle = single_product ? 1 : (product2_id == null || product2_id === '' ? 1 : 0);
+
+    if (!slug || !title || !product1_id || offer_price == null) {
       return error(res, 'Missing required fields', 400);
     }
+    if (!isSingle && !product2_id) {
+      return error(res, 'Missing required field: product2_id', 400);
+    }
+
+    const resolvedProduct2Id = isSingle ? Number(product1_id) : Number(product2_id);
 
     await db.execute({
       sql: `UPDATE landing_pages SET slug = ?, title = ?, subtitle = ?, product1_id = ?, product2_id = ?,
-            offer_price = ?, original_price = ?, image = ?, color_combos = ?, active = ?, updated_at = datetime('now')
+            offer_price = ?, original_price = ?, image = ?, color_combos = ?, single_product = ?, active = ?, updated_at = datetime('now')
             WHERE id = ?`,
       args: [
         slug,
         title,
         subtitle || null,
         Number(product1_id),
-        Number(product2_id),
+        resolvedProduct2Id,
         Number(offer_price),
         original_price != null ? Number(original_price) : null,
         image || null,
         color_combos ? JSON.stringify(color_combos) : null,
+        isSingle,
         active != null ? (active ? 1 : 0) : 1,
         id,
       ],
