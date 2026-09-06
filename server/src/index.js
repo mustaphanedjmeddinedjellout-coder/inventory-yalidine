@@ -48,10 +48,13 @@ if (!fs.existsSync(uploadDir)) {
 }
 
 // Middleware
-app.use(cors(corsOptions));
-app.options('*', cors(corsOptions));
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
+
+// Apply CORS only to /api routes — static assets must NOT be blocked by CORS
+// (Vite builds use <script type="module" crossorigin> which sends Origin header)
+app.use('/api', cors(corsOptions));
+app.options('/api/*', cors(corsOptions));
 
 // Static file serving for uploaded images
 app.use('/uploads', express.static(uploadDir, {
