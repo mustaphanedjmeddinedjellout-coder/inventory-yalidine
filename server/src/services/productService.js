@@ -130,10 +130,11 @@ const productService = {
   async create(data) {
     const { model_name, category, selling_price, promotion_price, cost_price, description, image, variants, color_images } = data;
     const normalizedVariants = normalizeVariants(variants || []);
+    const isHidden = data.is_hidden ? 1 : 0;
 
     const productResult = await db.execute({
-      sql: 'INSERT INTO products (model_name, category, selling_price, promotion_price, cost_price, description, image) VALUES (?, ?, ?, ?, ?, ?, ?)',
-      args: [model_name, category, selling_price, promotion_price ?? null, cost_price, description || null, image || null],
+      sql: 'INSERT INTO products (model_name, category, selling_price, promotion_price, cost_price, description, image, is_hidden) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+      args: [model_name, category, selling_price, promotion_price ?? null, cost_price, description || null, image || null, isHidden],
     });
 
     const productId = Number(productResult.lastInsertRowid);
@@ -160,10 +161,12 @@ const productService = {
   async update(id, data) {
     const { model_name, category, selling_price, promotion_price, cost_price, description, image, variants } = data;
     const normalizedVariants = normalizeVariants(variants || []);
+    const hasHiddenField = Object.prototype.hasOwnProperty.call(data, 'is_hidden');
+    const isHidden = hasHiddenField ? (data.is_hidden ? 1 : 0) : null;
 
     await db.execute({
-      sql: `UPDATE products SET model_name = ?, category = ?, selling_price = ?, promotion_price = ?, cost_price = ?, description = ?, image = COALESCE(?, image), updated_at = datetime('now') WHERE id = ?`,
-      args: [model_name, category, selling_price, promotion_price ?? null, cost_price, description !== undefined ? (description || null) : undefined, image || null, id],
+      sql: `UPDATE products SET model_name = ?, category = ?, selling_price = ?, promotion_price = ?, cost_price = ?, description = ?, image = COALESCE(?, image), is_hidden = COALESCE(?, is_hidden), updated_at = datetime('now') WHERE id = ?`,
+      args: [model_name, category, selling_price, promotion_price ?? null, cost_price, description !== undefined ? (description || null) : undefined, image || null, isHidden, id],
     });
 
     if (variants) {

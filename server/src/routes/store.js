@@ -49,7 +49,7 @@ function mapProduct(row, variants, colorImages) {
 router.get('/products', async (req, res) => {
   try {
     const productsResult = await db.execute({
-      sql: 'SELECT * FROM products ORDER BY created_at DESC',
+      sql: 'SELECT * FROM products WHERE COALESCE(is_hidden, 0) = 0 ORDER BY created_at DESC',
     });
 
     const products = [];
@@ -70,7 +70,7 @@ router.get('/products/:id', async (req, res) => {
   try {
     const productId = Number(req.params.id);
     const productResult = await db.execute({
-      sql: 'SELECT * FROM products WHERE id = ?',
+      sql: 'SELECT * FROM products WHERE id = ? AND COALESCE(is_hidden, 0) = 0',
       args: [productId],
     });
     if (productResult.rows.length === 0) return error(res, 'Product not found', 404);

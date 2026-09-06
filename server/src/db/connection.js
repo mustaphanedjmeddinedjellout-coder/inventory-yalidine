@@ -43,6 +43,7 @@ async function initializeDatabase() {
       cost_price REAL NOT NULL CHECK(cost_price >= 0),
       description TEXT,
       image TEXT,
+      is_hidden INTEGER NOT NULL DEFAULT 0,
       created_at TEXT DEFAULT (datetime('now')),
       updated_at TEXT DEFAULT (datetime('now'))
     );
@@ -193,6 +194,9 @@ async function setupDatabase() {
   }
   if (!productCols.includes('description')) {
     await db.execute('ALTER TABLE products ADD COLUMN description TEXT');
+  }
+  if (!productCols.includes('is_hidden')) {
+    await db.execute('ALTER TABLE products ADD COLUMN is_hidden INTEGER NOT NULL DEFAULT 0');
   }
 
   // Migrate landing_pages if it already existed without image columns

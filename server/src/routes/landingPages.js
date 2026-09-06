@@ -5,7 +5,7 @@ const { success, error } = require('../utils/response');
 
 async function fetchProductWithVariants(productId) {
   const productResult = await db.execute({
-    sql: 'SELECT * FROM products WHERE id = ?',
+    sql: 'SELECT * FROM products WHERE id = ? AND COALESCE(is_hidden, 0) = 0',
     args: [productId],
   });
   if (productResult.rows.length === 0) return null;

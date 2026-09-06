@@ -21,6 +21,7 @@ const emptyProduct = {
   cost_price: '',
   description: '',
   image: '',
+  is_hidden: false,
   variants: [{ color: '', size: '', quantity: 0, image: '' }],
   color_images: {},
 };
@@ -92,6 +93,7 @@ export default function Products() {
       cost_price: product.cost_price,
       description: product.description || '',
       image: product.image || '',
+      is_hidden: Boolean(product.is_hidden),
       variants: product.variants.length > 0 ? product.variants.map((v) => ({ ...v })) : [{ color: '', size: '', quantity: 0, image: '' }],
       color_images: product.color_images || {},
     });
@@ -117,6 +119,7 @@ export default function Products() {
         selling_price: selling,
         promotion_price: promotion,
         cost_price: parseFloat(form.cost_price),
+        is_hidden: Boolean(form.is_hidden),
         variants: propagateColorImages(form.variants).map((v) => ({
           ...v,
           quantity: parseInt(v.quantity) || 0,
@@ -382,6 +385,7 @@ export default function Products() {
                   <th className="text-right px-5 py-3 text-gray-500 font-medium">سعر الترويج</th>
                   <th className="text-right px-5 py-3 text-gray-500 font-medium">سعر التكلفة</th>
                   <th className="text-right px-5 py-3 text-gray-500 font-medium">الربح</th>
+                  <th className="text-right px-5 py-3 text-gray-500 font-medium">الحالة</th>
                   <th className="text-right px-5 py-3 text-gray-500 font-medium">المخزون</th>
                   <th className="text-right px-5 py-3 text-gray-500 font-medium">المتغيرات</th>
                   <th className="text-right px-5 py-3 text-gray-500 font-medium">إجراءات</th>
@@ -405,6 +409,15 @@ export default function Products() {
                     <td className="px-5 py-3">{formatCurrency(p.cost_price)} da</td>
                     <td className="px-5 py-3 text-green-600 font-medium">
                       {formatCurrency((Number(p.promotion_price) > 0 ? p.promotion_price : p.selling_price) - p.cost_price)} da
+                    </td>
+                    <td className="px-5 py-3">
+                      <span
+                        className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
+                          p.is_hidden ? 'bg-gray-100 text-gray-600' : 'bg-emerald-100 text-emerald-700'
+                        }`}
+                      >
+                        {p.is_hidden ? 'مخفي' : 'ظاهر'}
+                      </span>
                     </td>
                     <td className="px-5 py-3">
                       <span
@@ -512,6 +525,15 @@ export default function Products() {
                 placeholder="0.00"
               />
             </div>
+            <label className="flex items-center gap-3 rounded-lg border border-gray-200 bg-white px-3 py-2.5 text-sm text-gray-700 sm:col-span-2">
+              <input
+                type="checkbox"
+                checked={Boolean(form.is_hidden)}
+                onChange={(e) => setForm((f) => ({ ...f, is_hidden: e.target.checked }))}
+                className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary/20"
+              />
+              إخفاء المنتج عن العملاء
+            </label>
           </div>
 
           {/* Profit preview */}
