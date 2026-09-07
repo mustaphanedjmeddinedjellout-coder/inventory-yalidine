@@ -14,10 +14,15 @@ router.get('/wilayas', async (req, res) => {
     const result = await yalidineService.getWilayas();
     // Yalidine wraps arrays in { data: [...], has_more, total_data }
     const wilayas = result && result.data ? result.data : result;
-    success(res, Array.isArray(wilayas) ? wilayas : []);
+    if (Array.isArray(wilayas) && wilayas.length > 0) {
+      return success(res, wilayas);
+    }
   } catch (err) {
-    error(res, err.message);
+    console.warn('Yalidine wilayas fetch failed, using fallback 58 wilayas:', err.message);
   }
+  // Fallback to static 58 wilayas list
+  const WILAYAS = require('../data/wilayas');
+  return success(res, WILAYAS);
 });
 
 // GET /api/yalidine/communes?wilaya_id=16 – List communes for a wilaya
@@ -29,7 +34,8 @@ router.get('/communes', async (req, res) => {
     const communes = result && result.data ? result.data : result;
     success(res, Array.isArray(communes) ? communes : []);
   } catch (err) {
-    error(res, err.message);
+    console.warn(`Yalidine communes for wilaya ${req.query?.wilaya_id} failed:`, err.message);
+    success(res, []);
   }
 });
 
@@ -42,7 +48,8 @@ router.get('/centers', async (req, res) => {
     const centers = result && result.data ? result.data : result;
     success(res, Array.isArray(centers) ? centers : []);
   } catch (err) {
-    error(res, err.message);
+    console.warn('Yalidine centers failed:', err.message);
+    success(res, []);
   }
 });
 
@@ -76,7 +83,8 @@ router.get('/fees', async (req, res) => {
 
     success(res, { price: typeof price === 'number' ? price : Number(price) || 0 });
   } catch (err) {
-    error(res, err.message);
+    console.warn('Yalidine fees failed, defaulting to 0:', err.message);
+    success(res, { price: 0 });
   }
 });
 
