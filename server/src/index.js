@@ -51,9 +51,21 @@ if (!fs.existsSync(uploadDir)) {
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
 
-// Apply CORS only to /api routes — static assets must NOT be blocked by CORS
-// (Vite builds use <script type="module" crossorigin> which sends Origin header)
-app.use('/api', cors(corsOptions));
+// Apply CORS only to /api routes
+// For same-origin requests (Origin matches Host), skip CORS check entirely.
+// Modern browsers send Origin on same-origin POST requests, which would otherwise be rejected.
+app.use('/api', (req, res, next) => {
+  const origin = req.headers.origin;
+  const host = req.headers.host;
+
+  // Same-origin: no CORS headers needed, just proceed
+  if (!origin || (host && origin.endsWith(host))) {
+    return next();
+  }
+
+  // Cross-origin: apply CORS policy
+  cors(corsOptions)(req, res, next);
+});
 app.options('/api/*', cors(corsOptions));
 
 // Static file serving for uploaded images
