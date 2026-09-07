@@ -78,6 +78,19 @@ app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
+// Admin auth — validates password against server-side ADMIN_PASSWORD env var
+app.post('/api/admin/auth', (req, res) => {
+  const { password } = req.body || {};
+  const adminPassword = process.env.ADMIN_PASSWORD;
+  if (!adminPassword) {
+    return res.status(500).json({ success: false, error: 'Admin password not configured on server.' });
+  }
+  if (password === adminPassword) {
+    return res.json({ success: true });
+  }
+  return res.status(401).json({ success: false, error: 'Invalid password.' });
+});
+
 // Error handling middleware
 app.use((err, req, res, next) => {
   console.error('Unhandled error:', err);

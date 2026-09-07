@@ -1,30 +1,39 @@
 import { useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { getAdminPassword, setAdminAuthed } from './auth';
+import { setAdminAuthed } from './auth';
 
 export default function AdminLogin() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
 
-  const submit = (e) => {
+  const submit = async (e) => {
     e.preventDefault();
-    const expected = getAdminPassword();
+    setError('');
+    setLoading(true);
 
-    if (!expected) {
-      setError('Admin password is not configured.');
-      return;
+    try {
+      const res = await fetch('/api/admin/auth', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ password }),
+      });
+      const data = await res.json();
+
+      if (data.success) {
+        setAdminAuthed(true);
+        const target = location.state?.from || '/admin';
+        navigate(target, { replace: true });
+      } else {
+        setError(data.error || 'Invalid password.');
+      }
+    } catch {
+      setError('Could not connect to server. Please try again.');
+    } finally {
+      setLoading(false);
     }
-
-    if (password !== expected) {
-      setError('Invalid password.');
-      return;
-    }
-
-    setAdminAuthed(true);
-    const target = location.state?.from || '/admin';
-    navigate(target, { replace: true });
   };
 
   return (
@@ -41,12 +50,15 @@ export default function AdminLogin() {
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             placeholder="••••••••"
+            disabled={loading}
           />
         </div>
 
         {error && <p className="mt-3 text-[12px] text-red-500">{error}</p>}
 
-        <button type="submit" className="btn-primary mt-6 w-full">Enter</button>
+        <button type="submit" className="btn-primary mt-6 w-full" disabled={loading}>
+          {loading ? 'Checking...' : 'Enter'}
+        </button>
       </form>
     </div>
   );
