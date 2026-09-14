@@ -10,8 +10,8 @@ import { Plus, Edit, Trash2, Search, Package } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { resolveImageUrl } from '../storefront/utils';
 
-const CATEGORIES = ['T-Shirt', 'Pants', 'Shoes', 'Accessories'];
-const CATEGORY_LABELS = { 'T-Shirt': 'تيشيرت', Pants: 'بنطلون', Shoes: 'حذاء', Accessories: 'إكسسوارات' };
+const CATEGORIES = ['T-Shirt', 'Pants', 'Shoes'];
+const CATEGORY_LABELS = { 'T-Shirt': 'تيشيرت', Pants: 'بنطلون', Shoes: 'حذاء' };
 
 const emptyProduct = {
   model_name: '',

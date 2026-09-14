@@ -154,7 +154,7 @@ router.post('/', async (req, res) => {
       return error(res, 'سعر الترويج يجب أن يكون أصغر من سعر البيع', 400);
     }
 
-    if (!['T-Shirt', 'Pants', 'Shoes', 'Accessories'].includes(category)) {
+    if (!['T-Shirt', 'Pants', 'Shoes'].includes(category)) {
       return error(res, 'فئة غير صالحة', 400);
     }
 

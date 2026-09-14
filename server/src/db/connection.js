@@ -37,7 +37,7 @@ async function initializeDatabase() {
     CREATE TABLE IF NOT EXISTS products (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       model_name TEXT NOT NULL,
-      category TEXT NOT NULL CHECK(category IN ('T-Shirt', 'Pants', 'Shoes', 'Accessories')),
+      category TEXT NOT NULL CHECK(category IN ('T-Shirt', 'Pants', 'Shoes')),
       selling_price REAL NOT NULL CHECK(selling_price >= 0),
       promotion_price REAL CHECK(promotion_price >= 0),
       cost_price REAL NOT NULL CHECK(cost_price >= 0),
