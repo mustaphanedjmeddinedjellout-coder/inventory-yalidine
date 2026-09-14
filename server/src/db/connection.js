@@ -199,36 +199,6 @@ async function setupDatabase() {
     await db.execute('ALTER TABLE products ADD COLUMN is_hidden INTEGER NOT NULL DEFAULT 0');
   }
 
-  // Migration: update category CHECK constraint to include 'Accessories'
-  try {
-    const sqlResult = await db.execute("SELECT sql FROM sqlite_master WHERE type='table' AND name='products'");
-    const createSql = sqlResult.rows[0]?.sql || '';
-    if (createSql && !createSql.includes("'Accessories'")) {
-      await db.executeMultiple(`
-        ALTER TABLE products RENAME TO products_old;
-
-        CREATE TABLE products (
-          id INTEGER PRIMARY KEY AUTOINCREMENT,
-          model_name TEXT NOT NULL,
-          category TEXT NOT NULL CHECK(category IN ('T-Shirt', 'Pants', 'Shoes', 'Accessories')),
-          selling_price REAL NOT NULL CHECK(selling_price >= 0),
-          promotion_price REAL CHECK(promotion_price >= 0),
-          cost_price REAL NOT NULL CHECK(cost_price >= 0),
-          description TEXT,
-          image TEXT,
-          is_hidden INTEGER NOT NULL DEFAULT 0,
-          created_at TEXT DEFAULT (datetime('now')),
-          updated_at TEXT DEFAULT (datetime('now'))
-        );
-
-        INSERT INTO products SELECT * FROM products_old;
-        DROP TABLE products_old;
-      `);
-      console.log('Migrated products table: added Accessories category.');
-    }
-  } catch (err) {
-    console.warn('Accessories category migration skipped:', err.message);
-  }
 
   // Migrate landing_pages if it already existed without image columns
   try {
