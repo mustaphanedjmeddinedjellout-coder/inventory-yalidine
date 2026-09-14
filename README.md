@@ -118,7 +118,7 @@ npm run dev
 | ------------- | -------- | ------------------------ |
 | id            | INTEGER  | المفتاح الأساسي          |
 | model_name    | TEXT     | اسم الموديل              |
-| category      | TEXT     | الفئة (T-Shirt/Pants/Shoes) |
+| category      | TEXT     | الفئة (T-Shirt/Pants/Shoes/Accessories) |
 | selling_price | REAL     | سعر البيع                |
 | cost_price    | REAL     | سعر التكلفة (للربح)      |
 | image         | TEXT     | رابط الصورة (اختياري)     |
