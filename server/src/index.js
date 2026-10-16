@@ -38,7 +38,7 @@ const corsOptions = {
     return callback(new Error(`CORS blocked for origin: ${origin}`));
   },
   methods: ['GET', 'POST', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'X-STORE-KEY'],
+  allowedHeaders: ['Content-Type', 'X-STORE-KEY', 'X-ADMIN-PASSWORD'],
 };
 
 // Ensure uploads directory exists
