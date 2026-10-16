@@ -1,4 +1,5 @@
 import api from './client';
+import { getAdminPassword } from '../admin/auth';
 
 export const productApi = {
   getAll: (params) => api.get('/products', { params }),
@@ -9,7 +10,7 @@ export const productApi = {
     api.post(
       '/products/stock-sql',
       { sql },
-      { headers: { 'X-ADMIN-PASSWORD': import.meta.env.VITE_ADMIN_PASSWORD || '' } }
+      { headers: { 'X-ADMIN-PASSWORD': getAdminPassword() } }
     ),
   create: (data) => api.post('/products', data),
   update: (id, data) => api.put(`/products/${id}`, data),

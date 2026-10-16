@@ -23,7 +23,7 @@ export default function AdminLogin() {
       const data = await res.json();
 
       if (data.success) {
-        setAdminAuthed(true);
+        setAdminAuthed(true, password);
         const target = location.state?.from || '/admin';
         navigate(target, { replace: true });
       } else {

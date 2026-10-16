@@ -1,4 +1,5 @@
 const STORAGE_KEY = 'noire-admin-auth';
+const PASSWORD_KEY = 'noire-admin-pw';
 const MAX_SESSION_AGE_MS = 8 * 60 * 60 * 1000;
 
 export function isAdminAuthed() {
@@ -15,18 +16,20 @@ export function isAdminAuthed() {
   }
 }
 
-export function setAdminAuthed(value) {
+export function setAdminAuthed(value, password) {
   if (typeof window === 'undefined') return;
   if (value) {
     localStorage.setItem(
       STORAGE_KEY,
       JSON.stringify({ authedAt: Date.now() })
     );
+    if (password) sessionStorage.setItem(PASSWORD_KEY, password);
   } else {
     localStorage.removeItem(STORAGE_KEY);
+    sessionStorage.removeItem(PASSWORD_KEY);
   }
 }
 
 export function getAdminPassword() {
-  return import.meta.env.VITE_ADMIN_PASSWORD || '';
+  return sessionStorage.getItem(PASSWORD_KEY) || import.meta.env.VITE_ADMIN_PASSWORD || '';
 }
