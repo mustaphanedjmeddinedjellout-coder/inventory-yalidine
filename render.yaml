@@ -21,3 +21,11 @@ services:
         value: bGpr0mwyAxXJBECl3vnFNq7hK8tuTSOkYjcL4feIoW9saPHU6gDViQdZ521zRM
       - key: YALIDINE_FROM_WILAYA
         value: Alger
+      - key: IMAGEKIT_PUBLIC_KEY
+        sync: false
+      - key: IMAGEKIT_PRIVATE_KEY
+        sync: false
+      - key: IMAGEKIT_URL_ENDPOINT
+        sync: false
+      - key: IMAGEKIT_FOLDER
+        value: /inventory-yalidine/products
