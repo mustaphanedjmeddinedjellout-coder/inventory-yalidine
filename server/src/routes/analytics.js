@@ -66,4 +66,86 @@ router.get('/monthly', async (req, res) => {
   }
 });
 
+// GET /api/analytics/daily-performance - Full daily breakdown
+router.get('/daily-performance', async (req, res) => {
+  try {
+    const from = req.query.from || new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+    const to = req.query.to || new Date().toISOString().slice(0, 10);
+    const data = await analyticsService.getDailyPerformance(from, to);
+    success(res, data);
+  } catch (err) {
+    error(res, err.message);
+  }
+});
+
+// GET /api/analytics/daily-top-products - Top products per day
+router.get('/daily-top-products', async (req, res) => {
+  try {
+    const from = req.query.from || new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+    const to = req.query.to || new Date().toISOString().slice(0, 10);
+    const data = await analyticsService.getDailyTopProducts(from, to);
+    success(res, data);
+  } catch (err) {
+    error(res, err.message);
+  }
+});
+
+// GET /api/analytics/order-status - Order status breakdown
+router.get('/order-status', async (req, res) => {
+  try {
+    const from = req.query.from || new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+    const to = req.query.to || new Date().toISOString().slice(0, 10);
+    const data = await analyticsService.getOrderStatusBreakdown(from, to);
+    success(res, data);
+  } catch (err) {
+    error(res, err.message);
+  }
+});
+
+// GET /api/analytics/hourly - Hourly order distribution
+router.get('/hourly', async (req, res) => {
+  try {
+    const from = req.query.from || new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+    const to = req.query.to || new Date().toISOString().slice(0, 10);
+    const data = await analyticsService.getHourlyDistribution(from, to);
+    success(res, data);
+  } catch (err) {
+    error(res, err.message);
+  }
+});
+
+// GET /api/analytics/wilayas - Geographic sales breakdown
+router.get('/wilayas', async (req, res) => {
+  try {
+    const from = req.query.from || new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+    const to = req.query.to || new Date().toISOString().slice(0, 10);
+    const data = await analyticsService.getWilayaBreakdown(from, to);
+    success(res, data);
+  } catch (err) {
+    error(res, err.message);
+  }
+});
+
+// GET /api/analytics/growth - Growth comparison (current vs previous week)
+router.get('/growth', async (req, res) => {
+  try {
+    const data = await analyticsService.getGrowthComparison();
+    success(res, data);
+  } catch (err) {
+    error(res, err.message);
+  }
+});
+
+// GET /api/analytics/profit-margins - Profit margins by product
+router.get('/profit-margins', async (req, res) => {
+  try {
+    const from = req.query.from || new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+    const to = req.query.to || new Date().toISOString().slice(0, 10);
+    const data = await analyticsService.getProfitMargins(from, to);
+    success(res, data);
+  } catch (err) {
+    error(res, err.message);
+  }
+});
+
 module.exports = router;

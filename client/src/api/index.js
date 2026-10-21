@@ -41,6 +41,13 @@ export const analyticsApi = {
   getTopProducts: (params) => api.get('/analytics/top-products', { params }),
   getCategories: (params) => api.get('/analytics/categories', { params }),
   getMonthly: (year) => api.get('/analytics/monthly', { params: { year } }),
+  getDailyPerformance: (params) => api.get('/analytics/daily-performance', { params }),
+  getDailyTopProducts: (params) => api.get('/analytics/daily-top-products', { params }),
+  getOrderStatus: (params) => api.get('/analytics/order-status', { params }),
+  getHourly: (params) => api.get('/analytics/hourly', { params }),
+  getWilayas: (params) => api.get('/analytics/wilayas', { params }),
+  getGrowth: () => api.get('/analytics/growth'),
+  getProfitMargins: (params) => api.get('/analytics/profit-margins', { params }),
 };
 
 export const yalidineApi = {
