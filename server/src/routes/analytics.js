@@ -148,4 +148,14 @@ router.get('/profit-margins', async (req, res) => {
   }
 });
 
+// GET /api/analytics/today-products - Products sold today
+router.get('/today-products', async (req, res) => {
+  try {
+    const data = await analyticsService.getTodayProducts();
+    success(res, data);
+  } catch (err) {
+    error(res, err.message);
+  }
+});
+
 module.exports = router;

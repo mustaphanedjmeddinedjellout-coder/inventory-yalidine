@@ -40,6 +40,20 @@ const analyticsService = {
       JOIN products p ON p.id = pv.product_id
     `);
 
+    const totalStockUnits = await db.execute(
+      'SELECT COALESCE(SUM(quantity), 0) as total FROM product_variants'
+    );
+
+    const outOfStockVariants = await db.execute(
+      'SELECT COUNT(*) as count FROM product_variants WHERE quantity = 0'
+    );
+
+    const potentialStockProfit = await db.execute(`
+      SELECT COALESCE(SUM(pv.quantity * (p.selling_price - p.cost_price)), 0) as value
+      FROM product_variants pv
+      JOIN products p ON p.id = pv.product_id
+    `);
+
     // Enhanced: weekly and monthly stats
     const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
     const monthAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
@@ -86,6 +100,9 @@ const analyticsService = {
       total_products: totalProducts.rows[0].count,
       stock_value: stockValue.rows[0].value,
       stock_value_selling: stockValueSelling.rows[0].value,
+      total_stock_units: totalStockUnits.rows[0].total,
+      out_of_stock_variants: outOfStockVariants.rows[0].count,
+      potential_stock_profit: potentialStockProfit.rows[0].value,
       week_revenue: weekStats.rows[0].week_revenue,
       week_profit: weekStats.rows[0].week_profit,
       week_orders: weekStats.rows[0].week_orders,
@@ -347,6 +364,29 @@ const analyticsService = {
       GROUP BY oi.product_name
       ORDER BY margin_percentage DESC`,
       args: [from, to],
+    });
+    return result.rows;
+  },
+
+  /**
+   * Products sold today — detailed breakdown by product, color, and size
+   */
+  async getTodayProducts() {
+    const today = new Date().toISOString().slice(0, 10);
+    const result = await db.execute({
+      sql: `SELECT
+        oi.product_name,
+        oi.color,
+        oi.size,
+        SUM(oi.quantity) as qty_sold,
+        SUM(oi.line_total) as revenue,
+        SUM(oi.line_profit) as profit
+      FROM order_items oi
+      JOIN orders o ON o.id = oi.order_id
+      WHERE date(o.created_at) = date(?)
+      GROUP BY oi.product_name, oi.color, oi.size
+      ORDER BY qty_sold DESC`,
+      args: [today],
     });
     return result.rows;
   },

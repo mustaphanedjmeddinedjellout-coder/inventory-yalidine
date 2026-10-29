@@ -48,6 +48,7 @@ export const analyticsApi = {
   getWilayas: (params) => api.get('/analytics/wilayas', { params }),
   getGrowth: () => api.get('/analytics/growth'),
   getProfitMargins: (params) => api.get('/analytics/profit-margins', { params }),
+  getTodayProducts: () => api.get('/analytics/today-products'),
 };
 
 export const yalidineApi = {

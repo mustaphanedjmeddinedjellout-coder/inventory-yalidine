@@ -1,7 +1,7 @@
 /**
  * Dashboard Page
  * Shows today's revenue, profit, order count, weekly/monthly trends,
- * growth comparison, and low stock alerts.
+ * growth comparison, low stock alerts, and today's sold products.
  */
 import { useEffect, useState } from 'react';
 import { analyticsApi, productApi } from '../api';
@@ -10,6 +10,7 @@ import LoadingSpinner from '../components/LoadingSpinner';
 import {
   DollarSign, TrendingUp, TrendingDown, ShoppingCart, AlertTriangle, Package,
   ArrowUpRight, ArrowDownRight, Percent, BarChart3, CheckCircle, RotateCcw,
+  Boxes, PackageX,
 } from 'lucide-react';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
@@ -22,6 +23,7 @@ export default function Dashboard() {
   const [lowStock, setLowStock] = useState([]);
   const [growth, setGrowth] = useState(null);
   const [weeklyRevenue, setWeeklyRevenue] = useState([]);
+  const [todayProducts, setTodayProducts] = useState([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -34,16 +36,18 @@ export default function Dashboard() {
       const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
       const today = new Date().toISOString().slice(0, 10);
 
-      const [dashRes, stockRes, growthRes, weekRes] = await Promise.all([
+      const [dashRes, stockRes, growthRes, weekRes, todayProdRes] = await Promise.all([
         analyticsApi.getDashboard(),
         productApi.getLowStock(5),
         analyticsApi.getGrowth().catch(() => ({ data: null })),
         analyticsApi.getRevenue({ from: weekAgo, to: today }).catch(() => ({ data: [] })),
+        analyticsApi.getTodayProducts().catch(() => ({ data: [] })),
       ]);
       setStats(dashRes.data);
       setLowStock(stockRes.data);
       setGrowth(growthRes.data);
       setWeeklyRevenue(weekRes.data || []);
+      setTodayProducts(todayProdRes.data || []);
     } catch (err) {
       toast.error(err.message);
     } finally {
@@ -190,7 +194,7 @@ export default function Dashboard() {
       </div>
 
       {/* Inventory stats */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
         <StatCard
           title="إجمالي المنتجات"
           value={stats?.total_products || 0}
@@ -204,11 +208,105 @@ export default function Dashboard() {
           color="amber"
         />
         <StatCard
+          title="قيمة المخزون (بسعر البيع)"
+          value={`${formatCurrency(stats?.stock_value_selling)} da`}
+          icon={DollarSign}
+          color="green"
+        />
+        <StatCard
+          title="الربح المحتمل على المخزون"
+          value={`${formatCurrency(stats?.potential_stock_profit)} da`}
+          icon={TrendingUp}
+          color="green"
+          subtitle="لو تم بيع كل المخزون"
+        />
+      </div>
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
+        <StatCard
+          title="إجمالي الوحدات في المخزون"
+          value={stats?.total_stock_units || 0}
+          icon={Boxes}
+          color="blue"
+        />
+        <StatCard
+          title="متغيرات نفذت من المخزون"
+          value={stats?.out_of_stock_variants || 0}
+          icon={PackageX}
+          color={stats?.out_of_stock_variants > 0 ? 'red' : 'green'}
+        />
+        <StatCard
           title="متوسط قيمة الطلب"
           value={`${formatCurrency(stats?.avg_order_value)} da`}
           icon={Percent}
           color="purple"
         />
+      </div>
+
+      {/* Today's Sold Products */}
+      <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden mb-8">
+        <div className="p-5 border-b border-gray-100 flex items-center gap-2">
+          <ShoppingCart size={18} className="text-blue-600" />
+          <h2 className="font-semibold text-gray-800">المنتجات المباعة اليوم</h2>
+          {todayProducts.length > 0 && (
+            <span className="mr-auto text-xs font-medium bg-blue-50 text-blue-700 px-2.5 py-0.5 rounded-full">
+              {todayProducts.length} منتج
+            </span>
+          )}
+        </div>
+        {todayProducts.length > 0 ? (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="text-right px-5 py-3 text-gray-500 font-medium">المنتج</th>
+                  <th className="text-right px-5 py-3 text-gray-500 font-medium">اللون</th>
+                  <th className="text-right px-5 py-3 text-gray-500 font-medium">المقاس</th>
+                  <th className="text-right px-5 py-3 text-gray-500 font-medium">الكمية المباعة</th>
+                  <th className="text-right px-5 py-3 text-gray-500 font-medium">الإيرادات</th>
+                  <th className="text-right px-5 py-3 text-gray-500 font-medium">الربح</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-50">
+                {todayProducts.map((item, idx) => (
+                  <tr key={idx} className="table-row-hover">
+                    <td className="px-5 py-3 font-medium">{item.product_name}</td>
+                    <td className="px-5 py-3">{item.color || '—'}</td>
+                    <td className="px-5 py-3">{item.size || '—'}</td>
+                    <td className="px-5 py-3">
+                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-700">
+                        {item.qty_sold}
+                      </span>
+                    </td>
+                    <td className="px-5 py-3">{formatCurrency(item.revenue)} da</td>
+                    <td className="px-5 py-3 text-green-600 font-medium">{formatCurrency(item.profit)} da</td>
+                  </tr>
+                ))}
+              </tbody>
+              <tfoot className="bg-gray-50">
+                <tr>
+                  <td className="px-5 py-3 font-semibold text-gray-700" colSpan={3}>المجموع</td>
+                  <td className="px-5 py-3">
+                    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold bg-blue-100 text-blue-800">
+                      {todayProducts.reduce((sum, item) => sum + (item.qty_sold || 0), 0)}
+                    </span>
+                  </td>
+                  <td className="px-5 py-3 font-semibold text-gray-700">
+                    {formatCurrency(todayProducts.reduce((sum, item) => sum + (item.revenue || 0), 0))} da
+                  </td>
+                  <td className="px-5 py-3 font-semibold text-green-600">
+                    {formatCurrency(todayProducts.reduce((sum, item) => sum + (item.profit || 0), 0))} da
+                  </td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+        ) : (
+          <div className="p-8 text-center">
+            <ShoppingCart size={40} className="mx-auto text-gray-300 mb-3" />
+            <p className="text-gray-500">لا توجد مبيعات اليوم بعد</p>
+            <p className="text-gray-400 text-xs mt-1">ستظهر هنا المنتجات فور تسجيل أي طلب اليوم</p>
+          </div>
+        )}
       </div>
 
       {/* Low Stock Table */}
