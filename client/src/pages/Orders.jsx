@@ -619,7 +619,11 @@ export default function Orders() {
       const res = await orderApi.syncOld();
       const stats = res.data || {};
       await loadOrders();
-      toast.success(`تم مزامنة ${stats.synced || 0} طلب قديم وتحديث ${stats.updated || 0}`);
+      if (stats.running) {
+        toast.success('المزامنة مستمرة في الخلفية — أعد تحميل الصفحة بعد دقيقة لرؤية الحالات المحدّثة');
+      } else {
+        toast.success(`تم ربط ${stats.linked || 0} طلب، مزامنة ${stats.synced || 0} وتحديث ${stats.updated || 0}`);
+      }
     } catch (err) {
       toast.error(err.message);
     } finally {
@@ -634,7 +638,11 @@ export default function Orders() {
       const res = await orderApi.syncByPhone(input.trim() || undefined);
       const stats = res.data || {};
       await loadOrders();
-      toast.success(`مطابقة ${stats.matched || 0} طلب، وتحديث ${stats.updated || 0}`);
+      if (stats.running) {
+        toast.success('المزامنة مستمرة في الخلفية — أعد تحميل الصفحة بعد دقيقة');
+      } else {
+        toast.success(`مطابقة ${stats.matched || 0} طلب، وتحديث ${stats.updated || 0}`);
+      }
     } catch (err) {
       toast.error(err.message);
     } finally {

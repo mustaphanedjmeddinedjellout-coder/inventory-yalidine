@@ -199,6 +199,34 @@ function parcelTimestamp(parcel) {
  * number, so their status could never update. Look them up on Yalidine by
  * order number and store tracking + current status + label.
  */
+// ── Background jobs ──
+// Heroku cuts any request at 30s. Long Yalidine syncs run as a single shared
+// background job; a request waits for it at most SYNC_WAIT_MS, then answers.
+const SYNC_WAIT_MS = 20000;
+const backgroundJobs = new Map();
+
+function startJob(key, fn) {
+  if (backgroundJobs.has(key)) return backgroundJobs.get(key);
+  const job = Promise.resolve()
+    .then(fn)
+    .finally(() => backgroundJobs.delete(key));
+  job.catch((err) => console.warn(`Background job ${key} failed:`, err.message));
+  backgroundJobs.set(key, job);
+  return job;
+}
+
+async function waitAtMost(job, ms) {
+  let timer;
+  const timeout = new Promise((resolve) => {
+    timer = setTimeout(() => resolve({ done: false }), ms);
+  });
+  try {
+    return await Promise.race([job.then((result) => ({ done: true, result })), timeout]);
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 async function linkMissingTrackings(orders) {
   const missing = orders.filter(
     (order) =>
@@ -272,55 +300,13 @@ const orderService = {
     const rows = result.rows;
 
     if (options.syncYalidine && yalidineService.isConfigured()) {
-      await linkMissingTrackings(rows);
-
-      // Only refresh orders that have a tracking number and are not yet in a
-      // terminal state. Batch the tracking numbers (25 per call) so a large
-      // list still fits inside the Yalidine per-minute quota.
-      const active = rows.filter(
-        (order) =>
-          order.yalidine_tracking &&
-          String(order.yalidine_tracking).trim() &&
-          !isFinalYalidineStatus(order.yalidine_status)
-      );
-
-      for (const chunk of chunkRows(active, 25)) {
-        try {
-          const trackingValues = chunk
-            .map((order) => String(order.yalidine_tracking || '').trim())
-            .filter(Boolean);
-          if (trackingValues.length === 0) continue;
-
-          const trackingPayload = await yalidineService.listHistories({
-            tracking: trackingValues.join(','),
-            fields: 'date_status,tracking,status,reason,center_name,wilaya_name,commune_name',
-            page_size: Math.min(500, trackingValues.length * 20),
-            order_by: 'date_status',
-            desc: '',
-          });
-
-          const historyRows = extractYalidineHistoryRows(trackingPayload);
-          const latestByTracking = new Map();
-          for (const row of historyRows) {
-            const tracking = String(row.tracking || '').trim();
-            if (!tracking || latestByTracking.has(tracking)) continue;
-            if (row.status) latestByTracking.set(tracking, row.status);
-          }
-
-          for (const order of chunk) {
-            const latestStatus = latestByTracking.get(String(order.yalidine_tracking || '').trim());
-            if (!latestStatus || latestStatus === order.yalidine_status) continue;
-
-            await db.execute({
-              sql: 'UPDATE orders SET yalidine_status = ? WHERE id = ?',
-              args: [latestStatus, order.id],
-            });
-            order.yalidine_status = latestStatus;
-          }
-        } catch (err) {
-          console.warn('Failed to sync Yalidine statuses on list:', err.message);
-        }
+      try {
+        await waitAtMost(startJob('full-sync', () => this.syncOldOrdersStatuses()), SYNC_WAIT_MS);
+      } catch (err) {
+        console.warn('Failed to sync Yalidine statuses on list:', err.message);
       }
+      const fresh = await db.execute({ sql: query, args });
+      return fresh.rows;
     }
 
     return rows;
@@ -632,6 +618,29 @@ const orderService = {
   },
 
   /**
+   * Start (or join) the full sync and answer within SYNC_WAIT_MS.
+   */
+  async runFullSync() {
+    const { done, result } = await waitAtMost(
+      startJob('full-sync', () => this.syncOldOrdersStatuses()),
+      SYNC_WAIT_MS
+    );
+    return done ? result : { running: true };
+  },
+
+  /**
+   * Start (or join) a phone sync and answer within SYNC_WAIT_MS.
+   */
+  async runPhoneSync(phone) {
+    const key = `phone-sync:${String(phone || '').trim() || 'all'}`;
+    const { done, result } = await waitAtMost(
+      startJob(key, () => this.syncOrdersFromYalidineByPhone(phone)),
+      SYNC_WAIT_MS
+    );
+    return done ? result : { running: true };
+  },
+
+  /**
    * Sync Yalidine statuses for all existing tracked orders.
    */
   async syncOldOrdersStatuses() {
@@ -643,23 +652,27 @@ const orderService = {
       sql: `SELECT id, order_number, order_status, yalidine_tracking, yalidine_status, yalidine_label
             FROM orders
             WHERE order_status = 'approved'
-              AND (yalidine_tracking IS NULL OR trim(yalidine_tracking) = '')`,
+              AND (yalidine_tracking IS NULL OR trim(yalidine_tracking) = '')
+            ORDER BY created_at DESC`,
     });
     const linked = await linkMissingTrackings(missingResult.rows);
+    console.log(`Yalidine sync: linked ${linked}/${missingResult.rows.length} orders missing a tracking number`);
 
     const result = await db.execute({
       sql: `SELECT id, yalidine_tracking, yalidine_status
             FROM orders
             WHERE yalidine_tracking IS NOT NULL
               AND trim(yalidine_tracking) != ''
-            ORDER BY created_at ASC`,
+            ORDER BY created_at DESC`,
     });
+    // Delivered / returned parcels never change again: skip them to save quota.
+    const activeRows = result.rows.filter((order) => !isFinalYalidineStatus(order.yalidine_status));
 
     let synced = 0;
     let updated = 0;
     let failed = 0;
 
-    const chunks = chunkRows(result.rows, 25);
+    const chunks = chunkRows(activeRows, 25);
 
     for (const chunk of chunks) {
       try {
@@ -707,8 +720,11 @@ const orderService = {
       }
     }
 
+    console.log(`Yalidine sync: refreshed ${synced}/${activeRows.length} active parcels, ${updated} status changes, ${failed} failed`);
+
     return {
       totalTracked: result.rows.length,
+      active: activeRows.length,
       linked,
       synced,
       updated,

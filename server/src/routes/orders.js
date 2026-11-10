@@ -125,7 +125,7 @@ router.post('/:id/sync-status', async (req, res) => {
 // POST /api/orders/sync-old - Sync all old tracked orders from Yalidine
 router.post('/sync-old', async (req, res) => {
   try {
-    const stats = await orderService.syncOldOrdersStatuses();
+    const stats = await orderService.runFullSync();
     success(res, stats);
   } catch (err) {
     error(res, err.message, 400);
@@ -135,7 +135,7 @@ router.post('/sync-old', async (req, res) => {
 // POST /api/orders/sync-by-phone - Sync old admin orders from Yalidine by phone
 router.post('/sync-by-phone', async (req, res) => {
   try {
-    const stats = await orderService.syncOrdersFromYalidineByPhone(req.body?.phone);
+    const stats = await orderService.runPhoneSync(req.body?.phone);
     success(res, stats);
   } catch (err) {
     error(res, err.message, 400);
