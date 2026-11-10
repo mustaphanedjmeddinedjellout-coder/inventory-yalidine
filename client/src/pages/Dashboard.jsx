@@ -182,14 +182,14 @@ export default function Dashboard() {
           value={`${stats?.delivered_rate || 0}%`}
           icon={CheckCircle}
           color="green"
-          subtitle="الطلبات الموصلة"
+          subtitle={`${stats?.delivered_count || 0} من ${stats?.finished_count || 0} طرد منتهي · ${stats?.in_transit_count || 0} في الطريق`}
         />
         <StatCard
           title="نسبة الإرجاع"
           value={`${stats?.return_rate || 0}%`}
           icon={RotateCcw}
           color={parseFloat(stats?.return_rate) > 10 ? 'red' : 'amber'}
-          subtitle="الطلبات المرجعة"
+          subtitle={`${stats?.returned_count || 0} من ${stats?.finished_count || 0} طرد منتهي`}
         />
       </div>
 

@@ -82,15 +82,32 @@ const analyticsService = {
       'SELECT COALESCE(AVG(total_amount), 0) as avg_order_value FROM orders'
     );
 
-    const totalOrders = await db.execute('SELECT COUNT(*) as count FROM orders');
-    const deliveredOrders = await db.execute(
-      `SELECT COUNT(*) as count FROM orders WHERE LOWER(order_status) IN ('livrée', 'delivered', 'livré')`
+    // Delivery outcome comes from the Yalidine status (order_status is only
+    // pending/approved). Rates are computed over finished parcels so that
+    // delivered % + returned % = 100; parcels still on the way are reported apart.
+    const statusRows = await db.execute(
+      `SELECT yalidine_status AS status, COUNT(*) AS count
+       FROM orders
+       WHERE yalidine_tracking IS NOT NULL AND trim(yalidine_tracking) != ''
+       GROUP BY yalidine_status`
     );
-    const returnedOrders = await db.execute(
-      `SELECT COUNT(*) as count FROM orders WHERE LOWER(order_status) IN ('retourné', 'returned', 'retour')`
-    );
-
-    const total = totalOrders.rows[0].count || 1;
+    const normalize = (value) => String(value || '')
+      .trim()
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '');
+    let deliveredCount = 0;
+    let returnedCount = 0;
+    let shippedCount = 0;
+    for (const row of statusRows.rows) {
+      const count = Number(row.count || 0);
+      const status = normalize(row.status);
+      shippedCount += count;
+      if (status === 'livre' || status === 'delivered') deliveredCount += count;
+      else if (status.startsWith('retour') || status === 'returned') returnedCount += count;
+    }
+    const finishedCount = deliveredCount + returnedCount;
+    const rate = (part) => (finishedCount > 0 ? ((part / finishedCount) * 100).toFixed(1) : '0.0');
 
     return {
       today_revenue: todayStats.rows[0].today_revenue,
@@ -110,8 +127,12 @@ const analyticsService = {
       month_profit: monthStats.rows[0].month_profit,
       month_orders: monthStats.rows[0].month_orders,
       avg_order_value: avgOrder.rows[0].avg_order_value,
-      delivered_rate: ((deliveredOrders.rows[0].count / total) * 100).toFixed(1),
-      return_rate: ((returnedOrders.rows[0].count / total) * 100).toFixed(1),
+      delivered_rate: rate(deliveredCount),
+      return_rate: rate(returnedCount),
+      delivered_count: deliveredCount,
+      returned_count: returnedCount,
+      finished_count: finishedCount,
+      in_transit_count: shippedCount - finishedCount,
     };
   },
 
