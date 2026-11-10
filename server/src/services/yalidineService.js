@@ -155,6 +155,19 @@ async function request(method, path, body) {
   });
 }
 
+function normalizeCreatedParcels(result) {
+  if (!result) return [];
+  if (Array.isArray(result)) return result;
+  if (Array.isArray(result.data)) return result.data;
+  if (typeof result === 'object') {
+    // Keyed by order_id: { "ORD-...": { success, order_id, tracking, label, message } }
+    return Object.entries(result)
+      .filter(([, value]) => value && typeof value === 'object')
+      .map(([key, value]) => ({ order_id: key, ...value }));
+  }
+  return [];
+}
+
 const yalidineService = {
   /**
    * Get all 58 Algerian wilayas
@@ -228,9 +241,25 @@ const yalidineService = {
       product_to_collect: null,
     };
 
-    // Yalidine expects an array of parcels
+    // Yalidine expects an array of parcels. It answers with an object keyed by
+    // order_id ({"ORD-…": {success, tracking, label, …}}), so normalise to an array.
     const result = await request('POST', '/parcels/', [parcel]);
-    return result;
+    return normalizeCreatedParcels(result);
+  },
+
+  /**
+   * Find parcels by our order numbers (comma-separated lookup, max 25 per call).
+   * Returns [{ order_id, tracking, last_status, label }].
+   */
+  async findParcelsByOrderIds(orderIds = []) {
+    const ids = orderIds.map((id) => String(id || '').trim()).filter(Boolean);
+    if (ids.length === 0) return [];
+    const result = await this.getParcels({
+      order_id: ids.join(','),
+      fields: 'order_id,tracking,last_status,label',
+      page_size: Math.max(ids.length * 2, 10),
+    });
+    return Array.isArray(result) ? result : (Array.isArray(result?.data) ? result.data : []);
   },
 
   /**

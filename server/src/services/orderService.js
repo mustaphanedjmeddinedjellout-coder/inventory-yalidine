@@ -194,6 +194,50 @@ function parcelTimestamp(parcel) {
   return 0;
 }
 
+/**
+ * Orders approved before the create-parcel fix were saved without a tracking
+ * number, so their status could never update. Look them up on Yalidine by
+ * order number and store tracking + current status + label.
+ */
+async function linkMissingTrackings(orders) {
+  const missing = orders.filter(
+    (order) =>
+      String(order.order_status || '') === 'approved'
+      && !String(order.yalidine_tracking || '').trim()
+      && String(order.order_number || '').trim()
+  );
+  let linked = 0;
+
+  for (const chunk of chunkRows(missing, 25)) {
+    try {
+      const parcels = await yalidineService.findParcelsByOrderIds(chunk.map((o) => o.order_number));
+      const byOrderId = new Map();
+      for (const parcel of parcels) {
+        const key = String(parcel?.order_id || '').trim();
+        if (key && parcel.tracking && !byOrderId.has(key)) byOrderId.set(key, parcel);
+      }
+
+      for (const order of chunk) {
+        const parcel = byOrderId.get(String(order.order_number).trim());
+        if (!parcel) continue;
+        const status = (typeof parcel.last_status === 'string' && parcel.last_status.trim()) || order.yalidine_status || null;
+        await db.execute({
+          sql: 'UPDATE orders SET yalidine_tracking = ?, yalidine_status = ?, yalidine_label = COALESCE(?, yalidine_label) WHERE id = ?',
+          args: [parcel.tracking, status, parcel.label || null, order.id],
+        });
+        order.yalidine_tracking = parcel.tracking;
+        order.yalidine_status = status;
+        if (parcel.label) order.yalidine_label = parcel.label;
+        linked += 1;
+      }
+    } catch (err) {
+      console.warn('Failed to link missing Yalidine trackings:', err.message);
+    }
+  }
+
+  return linked;
+}
+
 function chunkRows(rows, size) {
   const chunks = [];
   for (let i = 0; i < rows.length; i += size) {
@@ -228,6 +272,8 @@ const orderService = {
     const rows = result.rows;
 
     if (options.syncYalidine && yalidineService.isConfigured()) {
+      await linkMissingTrackings(rows);
+
       // Only refresh orders that have a tracking number and are not yet in a
       // terminal state. Batch the tracking numbers (25 per call) so a large
       // list still fits inside the Yalidine per-minute quota.
@@ -558,11 +604,15 @@ const orderService = {
    * Sync Yalidine status for a single order by id.
    */
   async syncYalidineStatus(id) {
-    const order = await this.getById(id);
+    let order = await this.getById(id);
     if (!order) throw new Error('الطلب غير موجود');
-    if (!order.yalidine_tracking) return order;
     if (!yalidineService.isConfigured()) {
       throw new Error('Yalidine غير مفعّل. يرجى ضبط مفاتيح API.');
+    }
+    if (!order.yalidine_tracking) {
+      await linkMissingTrackings([order]);
+      if (!order.yalidine_tracking) return this.getById(id);
+      order = await this.getById(id);
     }
 
     const trackingPayload = await yalidineService.getHistories(order.yalidine_tracking, {
@@ -588,6 +638,14 @@ const orderService = {
     if (!yalidineService.isConfigured()) {
       throw new Error('Yalidine غير مفعّل. يرجى ضبط مفاتيح API.');
     }
+
+    const missingResult = await db.execute({
+      sql: `SELECT id, order_number, order_status, yalidine_tracking, yalidine_status, yalidine_label
+            FROM orders
+            WHERE order_status = 'approved'
+              AND (yalidine_tracking IS NULL OR trim(yalidine_tracking) = '')`,
+    });
+    const linked = await linkMissingTrackings(missingResult.rows);
 
     const result = await db.execute({
       sql: `SELECT id, yalidine_tracking, yalidine_status
@@ -651,6 +709,7 @@ const orderService = {
 
     return {
       totalTracked: result.rows.length,
+      linked,
       synced,
       updated,
       failed,
@@ -717,7 +776,13 @@ const orderService = {
 
       try {
         const pool = parcelsByPhoneTail.get(tail) || [];
-        const samePhone = pool.filter((parcel) => getPhoneTail(extractParcelPhone(parcel)) === tail);
+        const samePhone = pool.filter((parcel) => {
+          const parcelPhone = extractParcelPhone(parcel);
+          // Yalidine masks phones in API replies (e.g. 0********8). The request was
+          // already filtered by this phone, so a masked number counts as a match.
+          if (parcelPhone && parcelPhone.includes('*')) return true;
+          return getPhoneTail(parcelPhone) === tail;
+        });
 
         if (samePhone.length === 0) {
           noMatch += 1;
@@ -923,8 +988,16 @@ const orderService = {
     const productList = order.items.map(i => `${i.product_name} (${i.variant_info}) x${i.quantity}`).join(', ') + ' - يسمح بالفتح';
     const result = await yalidineService.createParcel({ ...order, ...normalized }, productList);
 
-    if (result && Array.isArray(result) && result.length > 0) {
-      const parcel = result[0];
+    const parcel = Array.isArray(result)
+      ? (result.find((p) => String(p?.order_id || '') === String(order.order_number || '')) || result[0])
+      : null;
+    if (parcel && parcel.success === false) {
+      // Stock is already deducted at this point, so keep the previous behaviour
+      // (order approved without tracking) but make the problem visible in logs.
+      console.warn(`Yalidine refused parcel for ${order.order_number}: ${parcel.message || 'unknown error'}`);
+    }
+
+    if (parcel && parcel.tracking) {
       await db.execute({
         sql: `UPDATE orders SET order_status = 'approved', yalidine_tracking = ?, yalidine_status = ?, yalidine_label = ? WHERE id = ?`,
         args: [parcel.tracking || null, parcel.state || parcel.status || 'En preparation', parcel.label || null, id],
