@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { fetchLandingPage, submitCheckout, fetchWilayas, fetchCommunes, fetchDeliveryFees, fetchCenters } from '../api';
-import { formatDzd, resolveImageUrl } from '../utils';
+import { formatDzd, resolveImageUrl, getMetaTracking } from '../utils';
 import SmartImage from '../components/SmartImage';
 import TrustStrip from '../components/TrustStrip';
 import CustomerReviews from '../components/CustomerReviews';
@@ -368,6 +368,7 @@ export default function LandingOffer() {
       const eventId = createEventId();
       const eventSourceUrl = typeof window !== 'undefined' ? window.location.href : '';
       const tiktokTracking = getTikTokTracking();
+      const metaTracking = getMetaTracking();
 
       const payload = {
         customer: {
@@ -379,6 +380,8 @@ export default function LandingOffer() {
           eventSourceUrl,
           ttclid: tiktokTracking.ttclid,
           ttp: tiktokTracking.ttp,
+          fbp: metaTracking.fbp,
+          fbc: metaTracking.fbc,
           address: form.deliveryMethod === 'stopdesk'
             ? `${form.centerName} - Bureau Yalidine`
             : form.address,

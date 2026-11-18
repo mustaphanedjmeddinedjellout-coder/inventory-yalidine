@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useCart } from '../cart-context';
-import { formatDzd } from '../utils';
+import { formatDzd, getMetaTracking } from '../utils';
 import { submitCheckout, fetchCommunes, fetchDeliveryFees, fetchWilayas, fetchCenters } from '../api';
 
 export default function Checkout() {
@@ -255,6 +255,7 @@ export default function Checkout() {
       const eventId = createEventId();
       const eventSourceUrl = typeof window !== 'undefined' ? window.location.href : '';
       const tiktokTracking = getTikTokTracking();
+      const metaTracking = getMetaTracking();
       const payload = {
         customer: {
           name: form.name,
@@ -265,6 +266,8 @@ export default function Checkout() {
           eventSourceUrl,
           ttclid: tiktokTracking.ttclid,
           ttp: tiktokTracking.ttp,
+          fbp: metaTracking.fbp,
+          fbc: metaTracking.fbc,
           address: form.deliveryMethod === 'stopdesk'
             ? `${form.centerName} - Bureau Yalidine`
             : form.address,

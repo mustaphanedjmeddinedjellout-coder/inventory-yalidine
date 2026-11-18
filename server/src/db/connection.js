@@ -174,6 +174,7 @@ async function setupDatabase() {
     ['address', 'TEXT'], ['to_wilaya_name', 'TEXT'], ['to_commune_name', 'TEXT'],
     ['is_stopdesk', 'INTEGER DEFAULT 0'], ['yalidine_tracking', 'TEXT'],
     ['yalidine_status', 'TEXT'], ['yalidine_label', 'TEXT'], ['yalidine_price', 'REAL'],
+    ['meta_tracking', 'TEXT'],
   ];
   for (const [name, type] of migrations) {
     if (!cols.includes(name)) {

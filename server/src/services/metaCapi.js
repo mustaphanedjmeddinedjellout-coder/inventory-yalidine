@@ -57,6 +57,8 @@ async function sendEvent({
   eventSourceUrl,
   clientIp,
   userAgent,
+  fbp,
+  fbc,
 }) {
   if (!isConfigured()) return { skipped: true };
   const { pixelId, accessToken, apiVersion, testEventCode } = getConfig();
@@ -72,6 +74,9 @@ async function sendEvent({
         user_data: {
           client_ip_address: clientIp,
           client_user_agent: userAgent,
+          fbp: fbp || undefined,
+          fbc: fbc || undefined,
+          external_id: user?.phone ? [sha256(user.phone)] : undefined,
           em: user?.email ? [sha256(user.email)] : undefined,
           ph: user?.phone ? [sha256(user.phone)] : undefined,
           fn: user?.firstname ? [sha256(user.firstname)] : undefined,

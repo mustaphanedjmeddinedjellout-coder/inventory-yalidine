@@ -858,7 +858,7 @@ const orderService = {
    * Create an order with line items.
    */
   async create(data) {
-    const { notes, firstname, familyname, contact_phone, address, to_wilaya_name, to_commune_name, is_stopdesk, yalidine_price, items, approve, delivery_price } = data;
+    const { notes, firstname, familyname, contact_phone, address, to_wilaya_name, to_commune_name, is_stopdesk, yalidine_price, items, approve, delivery_price, meta_tracking } = data;
 
     if (!items || items.length === 0) {
       throw new Error('يجب إضافة عنصر واحد على الأقل للطلب');
@@ -914,13 +914,14 @@ const orderService = {
 
     const orderResult = await db.execute({
       sql: `INSERT INTO orders (order_number, order_status, total_amount, total_cost, total_profit, items_count, delivery_price, notes,
-         firstname, familyname, contact_phone, address, to_wilaya_name, to_commune_name, is_stopdesk, yalidine_price)
-         VALUES (?, 'pending', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+         firstname, familyname, contact_phone, address, to_wilaya_name, to_commune_name, is_stopdesk, yalidine_price, meta_tracking)
+         VALUES (?, 'pending', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       args: [
         orderNumber, totalWithDelivery, totalCost, totalProfit, itemsCount, deliveryPrice, notes || null,
         firstname || null, familyname || null, contact_phone || null, address || null,
         to_wilaya_name || null, to_commune_name || null, is_stopdesk ? 1 : 0,
         yalidine_price != null ? yalidine_price : null,
+        meta_tracking ? JSON.stringify(meta_tracking) : null,
       ],
     });
 

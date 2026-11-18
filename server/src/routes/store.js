@@ -149,6 +149,15 @@ router.post('/checkout', storeApiKey, async (req, res) => {
       is_stopdesk: customer.deliveryMethod === 'stopdesk',
       yalidine_price: orderTotal,
       delivery_price: deliveryPrice,
+      // Customer's browser identifiers, kept so the later "ConfirmedOrder" event
+      // is attributed to the customer (not the admin who confirms it).
+      meta_tracking: {
+        fbp: customer.fbp || null,
+        fbc: customer.fbc || null,
+        ip: req.ip || null,
+        user_agent: req.get('user-agent') || null,
+        source_url: customer.eventSourceUrl || null,
+      },
       items: items.map((item) => ({
         product_id: Number(item.product_id),
         variant_id: Number(item.variant_id),
@@ -159,7 +168,9 @@ router.post('/checkout', storeApiKey, async (req, res) => {
 
     const order = await orderService.create(orderInput);
 
-    const eventId = String(order.order_number || '');
+    const orderNumber = String(order.order_number || '');
+    // Must match the eventID the browser pixel sent, so Meta counts the purchase once.
+    const eventId = String(customer.eventId || orderNumber);
     const eventSourceUrl = customer.eventSourceUrl || req.get('origin') || req.get('referer') || '';
     const userData = metaCapi.buildUserData({
       firstname,
@@ -177,9 +188,12 @@ router.post('/checkout', storeApiKey, async (req, res) => {
       customData: {
         currency: 'DZD',
         value: Number(order.total_amount || 0),
-        order_id: eventId,
+        order_id: orderNumber,
+        content_type: 'product',
+        content_ids: order.items.map((item) => String(item.product_id)),
+        num_items: order.items.reduce((sum, item) => sum + Number(item.quantity || 0), 0),
         contents: order.items.map((item) => ({
-          id: item.product_id,
+          id: String(item.product_id),
           quantity: item.quantity,
           item_price: item.selling_price,
         })),
@@ -187,6 +201,8 @@ router.post('/checkout', storeApiKey, async (req, res) => {
       eventSourceUrl,
       clientIp: req.ip,
       userAgent: req.get('user-agent') || '',
+      fbp: customer.fbp,
+      fbc: customer.fbc,
     }).catch((err) => {
       console.error('Meta CAPI error:', err.message);
     });
@@ -230,7 +246,7 @@ router.post('/checkout', storeApiKey, async (req, res) => {
       tiktokCapi.sendEvent({
         eventName,
         eventTime,
-        eventId: `${eventId}-${eventName}`,
+        eventId: `${orderNumber}-${eventName}`,
         user: tiktokUser,
         properties: tiktokBase,
         eventSourceUrl,

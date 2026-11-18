@@ -61,10 +61,17 @@ router.post('/:id/approve', async (req, res) => {
   try {
     const order = await orderService.approve(parseInt(req.params.id));
 
-    // Fire Meta CAPI Purchase event for the CONFIRMED order.
-    // Uses a distinct event_id (-confirmed suffix) so it is NOT deduplicated
-    // against the initial checkout Purchase event.
-    const eventId = `${String(order.order_number || order.id)}-confirmed`;
+    // Fire a separate "ConfirmedOrder" event once the order is confirmed by phone.
+    // It is NOT a "Purchase" (that was already counted at checkout), so Meta reports
+    // aren't inflated. In Events Manager, create a custom conversion on it to see
+    // cost per confirmed order, or to optimize campaigns for confirmed buyers.
+    let tracking = {};
+    try {
+      tracking = order.meta_tracking ? JSON.parse(order.meta_tracking) : {};
+    } catch {
+      tracking = {};
+    }
+    const orderNumber = String(order.order_number || order.id);
     const userData = metaCapi.buildUserData({
       firstname: order.firstname,
       familyname: order.familyname,
@@ -74,26 +81,30 @@ router.post('/:id/approve', async (req, res) => {
     });
 
     metaCapi.sendEvent({
-      eventName: 'Purchase',
+      eventName: 'ConfirmedOrder',
       eventTime: Math.floor(Date.now() / 1000),
-      eventId,
+      eventId: `${orderNumber}-confirmed`,
       user: userData,
       customData: {
         currency: 'DZD',
         value: Number(order.total_amount || order.yalidine_price || 0),
-        order_id: String(order.order_number || order.id),
-        order_status: 'confirmed',
+        order_id: orderNumber,
+        content_type: 'product',
+        content_ids: (order.items || []).map((item) => String(item.product_id)),
         contents: (order.items || []).map((item) => ({
-          id: item.product_id,
+          id: String(item.product_id),
           quantity: item.quantity,
           item_price: item.selling_price,
         })),
       },
-      eventSourceUrl: req.get('origin') || req.get('referer') || '',
-      clientIp: req.ip,
-      userAgent: req.get('user-agent') || '',
+      // Use the customer's original browser data, not the admin's.
+      eventSourceUrl: tracking.source_url || req.get('origin') || '',
+      clientIp: tracking.ip || undefined,
+      userAgent: tracking.user_agent || req.get('user-agent') || '',
+      fbp: tracking.fbp,
+      fbc: tracking.fbc,
     }).catch((err) => {
-      console.error('Meta CAPI (confirmed Purchase) error:', err.message);
+      console.error('Meta CAPI (ConfirmedOrder) error:', err.message);
     });
 
     success(res, order);

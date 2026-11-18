@@ -18,6 +18,7 @@ import { CartProvider } from './storefront/cart-context';
 import LandingPages from './pages/LandingPages';
 import AdminGuard from './admin/AdminGuard';
 import AdminLogin from './admin/AdminLogin';
+import { captureFbclid } from './storefront/utils';
 
 const META_PIXEL_ID = '2159470911562696';
 
@@ -57,6 +58,7 @@ function MetaPixelTracker() {
   useEffect(() => {
     if (typeof window === 'undefined' || !window.fbq) return;
     if (location.pathname.startsWith('/admin')) return;
+    captureFbclid();
     window.fbq('track', 'PageView');
   }, [location.pathname]);
 
